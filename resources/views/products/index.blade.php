@@ -60,7 +60,8 @@
                                             <div class="bg-light rounded d-flex align-items-center justify-content-center me-3 position-relative overflow-hidden"
                                                 style="width: 50px; height: 50px;">
                                                 @if($product->image)
-                                                    <img src="{{ asset('storage/' . $product->image) }}" class="position-absolute w-100 h-100 object-fit-cover" alt="img">
+                                                    <img src="{{ asset('storage/' . $product->image) }}"
+                                                        class="position-absolute w-100 h-100 object-fit-cover" alt="img">
                                                 @else
                                                     <i class="fas fa-tshirt text-secondary fa-lg"></i>
                                                 @endif
@@ -87,9 +88,11 @@
                                     </td>
                                     <td>
                                         @if($product->status)
-                                            <span class="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-pill">Activo</span>
+                                            <span
+                                                class="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-pill">Activo</span>
                                         @else
-                                            <span class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-2 rounded-pill">Inactivo</span>
+                                            <span
+                                                class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-2 rounded-pill">Inactivo</span>
                                         @endif
                                     </td>
                                     <td class="text-end">
@@ -139,11 +142,13 @@
                         <div class="row g-3">
                             <!-- Sección 1: Detalles Básicos -->
                             <div class="col-12">
-                                <h6 class="text-muted text-uppercase small fw-bold mb-3 border-bottom pb-2">Información Básica</h6>
+                                <h6 class="text-muted text-uppercase small fw-bold mb-3 border-bottom pb-2">Información
+                                    Básica</h6>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label small fw-bold">Nombre de Prenda</label>
-                                <input type="text" class="form-control" id="name" name="name" required placeholder="Ej: Polo Pique">
+                                <input type="text" class="form-control" id="name" name="name" required
+                                    placeholder="Ej: Polo Pique">
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label small fw-bold">Código</label>
@@ -162,9 +167,10 @@
                             </div>
                             <div class="col-12">
                                 <label class="form-label small fw-bold">Descripción</label>
-                                <textarea class="form-control" id="description" name="description" rows="2" placeholder="Detalles de tela, corte, etc."></textarea>
+                                <textarea class="form-control" id="description" name="description" rows="2"
+                                    placeholder="Detalles de tela, corte, etc."></textarea>
                             </div>
-                             <div class="col-12">
+                            <div class="col-12">
                                 <label class="form-label small fw-bold">Imagen del Producto</label>
                                 <input type="file" class="form-control" id="image" name="image" accept="image/*">
                                 <div class="form-text">Se recomienda una imagen cuadrada (1:1).</div>
@@ -172,7 +178,8 @@
 
                             <!-- Sección 2: Inventario y Precios -->
                             <div class="col-12 mt-4">
-                                <h6 class="text-muted text-uppercase small fw-bold mb-3 border-bottom pb-2">Inventario y Costos</h6>
+                                <h6 class="text-muted text-uppercase small fw-bold mb-3 border-bottom pb-2">Inventario y
+                                    Costos</h6>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label small fw-bold">Unidad Medida</label>
@@ -191,14 +198,17 @@
                                 <label class="form-label small fw-bold">Costo (S/)</label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light border-end-0">S/</span>
-                                    <input type="number" step="0.01" class="form-control border-start-0 ps-1" id="cost" name="cost" required min="0">
+                                    <input type="number" step="0.01" class="form-control border-start-0 ps-1" id="cost"
+                                        name="cost" required min="0">
                                 </div>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label small fw-bold text-primary">Precio Venta</label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-primary text-white border-primary">S/</span>
-                                    <input type="number" step="0.01" class="form-control border-primary fw-bold text-primary show-focus-primary" id="price" name="price" required min="0">
+                                    <input type="number" step="0.01"
+                                        class="form-control border-primary fw-bold text-primary show-focus-primary"
+                                        id="price" name="price" required min="0">
                                 </div>
                             </div>
 
@@ -206,8 +216,10 @@
                             <div class="col-12 mt-3">
                                 <div class="form-check form-switch p-3 bg-light rounded">
                                     <input type="hidden" name="status" value="0">
-                                    <input class="form-check-input ms-0 me-2" type="checkbox" id="status" name="status" value="1" checked>
-                                    <label class="form-check-label fw-bold" for="status">Producto Disponible para Venta</label>
+                                    <input class="form-check-input ms-0 me-2" type="checkbox" id="status" name="status"
+                                        value="1" checked>
+                                    <label class="form-check-label fw-bold" for="status">Producto Disponible para
+                                        Venta</label>
                                 </div>
                             </div>
                         </div>
@@ -256,9 +268,10 @@
             }
 
             // Delete Confirmation
-            document.querySelectorAll('.delete-form').forEach(form => {
-                form.addEventListener('submit', function (e) {
+            document.querySelectorAll('.delete-form').forEach(function (deleteForm) {
+                deleteForm.addEventListener('submit', function (e) {
                     e.preventDefault();
+                    const formToSubmit = this;
                     Swal.fire({
                         title: '¿Eliminar producto?',
                         text: "Esta acción retirará el item del inventario permanentemente.",
@@ -266,10 +279,11 @@
                         showCancelButton: true,
                         confirmButtonColor: '#1a1a1a',
                         cancelButtonColor: '#6c757d',
-                        confirmButtonText: 'Sí, eliminar'
+                        confirmButtonText: 'Sí, eliminar',
+                        cancelButtonText: 'Cancelar'
                     }).then((result) => {
                         if (result.isConfirmed) {
-                            this.submit();
+                            formToSubmit.submit();
                         }
                     });
                 });

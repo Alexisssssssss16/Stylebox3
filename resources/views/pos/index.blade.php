@@ -165,7 +165,7 @@
                     <div id="paymentMethodsContainer">
                         <div class="payment-row mb-3 row g-2">
                             <div class="col-6">
-                                <select class="form-select payment-method-select">
+                                <select class="form-select payment-method-select" onchange="checkYape(this)">
                                     @foreach($paymentMethods as $method)
                                         <option value="{{ $method->id }}">{{ $method->name }}</option>
                                     @endforeach
@@ -179,6 +179,14 @@
                                 <!-- First row can't be deleted, logic handled in JS -->
                             </div>
                         </div>
+                    </div>
+
+                    <!-- YAPE QR CONTAINER -->
+                    <div id="yape-qr-container" class="text-center p-3 mb-3 bg-light rounded border d-none">
+                        <h6 class="fw-bold text-purple mb-2" style="color: #742774;">¡Escanea para Yapear!</h6>
+                        <img src="{{ asset('images/yape_qr.png') }}" alt="QR Yape"
+                            style="max-width: 200px; border-radius: 10px;">
+                        <p class="small text-muted mt-2">Titular: Raul Alexis Campos Sanchez</p>
                     </div>
 
                     <div class="text-end mb-3">
@@ -207,6 +215,28 @@
     <script>
         let cart = [];
         let products = @json($products);
+
+        function checkYape(selectElement) {
+            let text = selectElement.options[selectElement.selectedIndex].text.toLowerCase();
+            let qrContainer = document.getElementById('yape-qr-container');
+
+            // Logic: If ANY row selects Yape, show QR. If NONE select Yape, hide.
+            // Simplified: If THIS is Yape, show.
+            // Better: Check all selects.
+            let allSelects = document.querySelectorAll('.payment-method-select');
+            let hasYape = false;
+            allSelects.forEach(sel => {
+                if (sel.options[sel.selectedIndex].text.toLowerCase().includes('yape')) {
+                    hasYape = true;
+                }
+            });
+
+            if (hasYape) {
+                qrContainer.classList.remove('d-none');
+            } else {
+                qrContainer.classList.add('d-none');
+            }
+        }
 
         // Search Filter
         document.getElementById('searchInput').addEventListener('keyup', function (e) {
@@ -253,10 +283,10 @@
 
             if (cart.length === 0) {
                 container.innerHTML = `
-                    <div class="text-center py-5 text-muted empty-cart-message">
-                        <i class="fas fa-shopping-basket fa-3x mb-3 opacity-50"></i>
-                        <p>El carrito está vacío</p>
-                    </div>`;
+                            <div class="text-center py-5 text-muted empty-cart-message">
+                                <i class="fas fa-shopping-basket fa-3x mb-3 opacity-50"></i>
+                                <p>El carrito está vacío</p>
+                            </div>`;
                 btn.disabled = true;
                 updateTotals(0);
                 return;
@@ -269,19 +299,19 @@
                 let subtotal = item.price * item.quantity;
                 total += subtotal;
                 html += `
-                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                        <div class="ms-2 me-auto">
-                            <div class="fw-bold">${item.name}</div>
-                            <div class="text-muted small">S/ ${item.price.toFixed(2)} x ${item.quantity}</div>
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="fw-bold">S/ ${subtotal.toFixed(2)}</span>
-                            <button class="btn btn-sm text-danger" onclick="removeFromCart(${index})">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    </li>
-                `;
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <div class="ms-2 me-auto">
+                                    <div class="fw-bold">${item.name}</div>
+                                    <div class="text-muted small">S/ ${item.price.toFixed(2)} x ${item.quantity}</div>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="fw-bold">S/ ${subtotal.toFixed(2)}</span>
+                                    <button class="btn btn-sm text-danger" onclick="removeFromCart(${index})">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </li>
+                        `;
             });
             html += '</ul>';
             container.innerHTML = html;
@@ -323,22 +353,22 @@
             let div = document.createElement('div');
             div.className = 'payment-row mb-3 row g-2';
             div.innerHTML = `
-                <div class="col-6">
-                    <select class="form-select payment-method-select">
-                        @foreach($paymentMethods as $method)
-                            <option value="{{ $method->id }}">{{ $method->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-4">
-                    <input type="number" class="form-control payment-amount-input" step="0.01" placeholder="Monto">
-                </div>
-                <div class="col-2">
-                    <button class="btn btn-outline-danger w-100" onclick="this.closest('.row').remove()">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            `;
+                        <div class="col-6">
+                            <select class="form-select payment-method-select">
+                                @foreach($paymentMethods as $method)
+                                    <option value="{{ $method->id }}">{{ $method->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <input type="number" class="form-control payment-amount-input" step="0.01" placeholder="Monto">
+                        </div>
+                        <div class="col-2">
+                            <button class="btn btn-outline-danger w-100" onclick="this.closest('.row').remove()">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    `;
             container.appendChild(div);
         }
 

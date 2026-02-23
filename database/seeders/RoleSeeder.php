@@ -6,8 +6,8 @@ use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use App\Models\User;
+use App\Models\Client;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\DB;
 
 class RoleSeeder extends Seeder
 {
@@ -19,93 +19,202 @@ class RoleSeeder extends Seeder
         // Reset cached roles and permissions
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // --- Permissions ---
+        // ─────────────────────────────────────────────────────────
+        // PERMISSIONS — organized by functional module (dot notation)
+        // ─────────────────────────────────────────────────────────
+
         $permissions = [
-            // Clients
-            'clients_list',
-            'clients_create',
-            'clients_edit',
-            'clients_delete',
 
-            // Products
-            'products_list',
-            'products_create',
-            'products_edit',
-            'products_delete',
+            // ── Productos ────────────────────────────────────────
+            'productos.view',
+            'productos.create',
+            'productos.edit',
+            'productos.delete',
 
-            // Measurement Units
-            'measurement_units_list',
-            'measurement_units_create',
-            'measurement_units_edit',
-            'measurement_units_delete',
+            // ── Ventas / POS ─────────────────────────────────────
+            'ventas.view',
+            'ventas.create',
+            'ventas.edit',
+            'ventas.delete',
 
-            // Roles & Users (System)
-            'users_list',
-            'users_create',
-            'users_edit',
-            'roles_list',
-            'roles_create',
-            'roles_edit',
+            // ── Clientes ─────────────────────────────────────────
+            'clientes.view',
+            'clientes.create',
+            'clientes.edit',
+            'clientes.delete',
+
+            // ── Inventario ───────────────────────────────────────
+            'inventario.manage',
+
+            // ── Reportes ─────────────────────────────────────────
+            'reportes.view',
+
+            // ── Unidades de Medida ───────────────────────────────
+            'medidas.manage',
+
+            // ── Usuarios del Sistema ─────────────────────────────
+            'usuarios.manage',
+
+            // ── Roles del Sistema ────────────────────────────────
+            'roles.manage',
+
+            // ── Cliente Virtual (antes comprador) ───────────────
+            'cliente_virtual.catalogo',
+            'cliente_virtual.carrito',
+            'cliente_virtual.checkout',
+            'cliente_virtual.pedidos',
+            'cliente_virtual.perfil',
+
+            // ── Cliente Presencial ──────────────────────────────
+            'cliente_presencial.pedidos',
+
+            // ── Pedidos Virtuales (Admin) ────────────────────────
+            'pedidos.virtuales.manage',
         ];
 
         foreach ($permissions as $permission) {
             Permission::firstOrCreate(['name' => $permission]);
         }
 
-        // --- Roles ---
+        // ─────────────────────────────────────────────────────────
+        // ROLES — with functional permission sets
+        // ─────────────────────────────────────────────────────────
 
-        // 1. Admin (All permissions)
+        // 1. Admin — control total del sistema
         $roleAdmin = Role::firstOrCreate(['name' => 'admin']);
         $roleAdmin->syncPermissions(Permission::all());
 
-        // 2. Vendedor (Store operations)
+        // 2. Vendedor — gestión operativa de tienda
         $roleVendedor = Role::firstOrCreate(['name' => 'vendedor']);
         $roleVendedor->syncPermissions([
-            'products_list',
-            'clients_list',
-            'clients_create',
-            'clients_edit',
-            'measurement_units_list',
+            'productos.view',
+            'ventas.view',
+            'ventas.create',
+            'ventas.edit',
+            'clientes.view',
+            'clientes.create',
+            'clientes.edit',
+            'inventario.manage',
+            'reportes.view',
+            'medidas.manage',
         ]);
 
-        // 3. Cliente (Read-only / My Profile)
-        $roleCliente = Role::firstOrCreate(['name' => 'cliente']);
-        $roleCliente->syncPermissions([
-            // In a real store, a client might not access the admin panel at all,
-            // but for this request we give them limited view if they login.
-            // 'products_list', 
+        // 3. Cliente Virtual — registrado vía web
+        $roleVirtual = Role::firstOrCreate(['name' => 'cliente_virtual']);
+        // Migrar permisos de 'comprador' si existía
+        $roleVirtual->syncPermissions([
+            'cliente_virtual.catalogo',
+            'cliente_virtual.carrito',
+            'cliente_virtual.checkout',
+            'cliente_virtual.pedidos',
+            'cliente_virtual.perfil',
         ]);
 
-        // --- Default Users ---
+        // 4. Cliente Presencial — registrado en tienda
+        $rolePresencial = Role::firstOrCreate(['name' => 'cliente_presencial']);
+        $rolePresencial->syncPermissions([
+            'cliente_presencial.pedidos',
+        ]);
 
-        // Admin User
+        // ─────────────────────────────────────────────────────────
+        // DEMO USERS
+        // ─────────────────────────────────────────────────────────
+
+        // Super Admin
         $admin = User::firstOrCreate(
-            ['email' => 'admin@example.com'],
+            ['email' => 'admin@stylebox.com'],
             [
                 'name' => 'Super Admin',
                 'password' => Hash::make('password'),
+                'email_verified_at' => now(),
             ]
         );
-        $admin->assignRole($roleAdmin);
+        if (!$admin->hasRole('admin')) {
+            $admin->assignRole($roleAdmin);
+        }
 
-        // Vendedor User
+        // Vendedor demo
         $vendedor = User::firstOrCreate(
-            ['email' => 'vendedor@example.com'],
+            ['email' => 'vendedor@stylebox.com'],
             [
-                'name' => 'Vendedor Tienda',
+                'name' => 'Vendedor Demo',
                 'password' => Hash::make('password'),
+                'email_verified_at' => now(),
             ]
         );
-        $vendedor->assignRole($roleVendedor);
+        if (!$vendedor->hasRole('vendedor')) {
+            $vendedor->assignRole($roleVendedor);
+        }
 
-        // Client User
-        $client = User::firstOrCreate(
-            ['email' => 'cliente@example.com'],
+        // Cliente Virtual demo
+        $clienteVirtual = User::firstOrCreate(
+            ['email' => 'cliente@stylebox.com'],
             [
-                'name' => 'Cliente Demo',
+                'name' => 'Cliente Virtual',
                 'password' => Hash::make('password'),
+                'email_verified_at' => now(),
+                'client_type' => 'virtual',
             ]
         );
-        $client->assignRole($roleCliente);
+        if (!$clienteVirtual->hasRole('cliente_virtual')) {
+            $clienteVirtual->assignRole($roleVirtual);
+        }
+
+        // Create Client record for Virtual Demo
+        Client::firstOrCreate(
+            ['email' => $clienteVirtual->email],
+            [
+                'user_id' => $clienteVirtual->id,
+                'name' => $clienteVirtual->name,
+                'client_type' => 'virtual',
+                'status' => true,
+                'document_type' => 'DNI',
+                'document_number' => '11111111',
+            ]
+        );
+
+        // Cliente Presencial demo (not able to login normally, but exists for history)
+        $clientePresencial = User::firstOrCreate(
+            ['email' => 'presencial@stylebox.com'],
+            [
+                'name' => 'Cliente Presencial',
+                'password' => Hash::make('nopassword-store-only'),
+                'email_verified_at' => now(),
+                'client_type' => 'presencial',
+            ]
+        );
+        if (!$clientePresencial->hasRole('cliente_presencial')) {
+            $clientePresencial->assignRole($rolePresencial);
+        }
+
+        // Create Client record for Presencial Demo
+        Client::firstOrCreate(
+            ['email' => $clientePresencial->email],
+            [
+                'user_id' => $clientePresencial->id,
+                'name' => $clientePresencial->name,
+                'client_type' => 'presencial',
+                'status' => true,
+                'document_type' => 'DNI',
+                'document_number' => '22222222',
+            ]
+        );
+
+        // ─────────────────────────────────────────────────────────
+        // OUTPUT SUMMARY
+        // ─────────────────────────────────────────────────────────
+
+        $this->command->info('');
+        $this->command->info('✅ Roles y permisos creados correctamente.');
+        $this->command->info('');
+        $this->command->table(
+            ['Rol', 'Permisos asignados', 'Email demo', 'Contraseña'],
+            [
+                ['admin', Permission::all()->count() . ' (todos)', 'admin@stylebox.com', 'password'],
+                ['vendedor', '10', 'vendedor@stylebox.com', 'password'],
+                ['cliente_virtual', '5', 'cliente@stylebox.com', 'password'],
+                ['cliente_presencial', '1', 'presencial@stylebox.com', 'N/A'],
+            ]
+        );
     }
 }

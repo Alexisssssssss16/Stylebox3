@@ -20,16 +20,35 @@
 
         <div class="card card-custom">
             <div class="card-body">
-                <!-- Search Filter -->
+                <!-- Search & Filters -->
                 <form action="{{ route('clients.index') }}" method="GET" class="mb-4">
-                    <div class="input-group">
-                        <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
-                        <input type="text" name="search" class="form-control border-start-0 ps-0"
-                            placeholder="Buscar por nombre, email o teléfono..." value="{{ request('search') }}">
-                        <button class="btn btn-dark" type="submit">Buscar</button>
-                        @if(request('search'))
-                            <a href="{{ route('clients.index') }}" class="btn btn-outline-secondary">Limpiar</a>
-                        @endif
+                    <div class="row g-2">
+                        <div class="col-md-7">
+                            <div class="input-group">
+                                <span class="input-group-text bg-white border-end-0"><i
+                                        class="fas fa-search text-muted"></i></span>
+                                <input type="text" name="search" class="form-control border-start-0 ps-0"
+                                    placeholder="Buscar por nombre, email o teléfono..." value="{{ request('search') }}">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <select name="type" class="form-select border-start-0">
+                                <option value="">Todos los tipos</option>
+                                <option value="virtual" {{ request('type') == 'virtual' ? 'selected' : '' }}>Cliente Virtual
+                                </option>
+                                <option value="presencial" {{ request('type') == 'presencial' ? 'selected' : '' }}>Cliente
+                                    Presencial</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="btn-group w-100">
+                                <button class="btn btn-dark" type="submit">Filtrar</button>
+                                @if(request('search') || request('type'))
+                                    <a href="{{ route('clients.index') }}" class="btn btn-outline-secondary"><i
+                                            class="fas fa-times"></i></a>
+                                @endif
+                            </div>
+                        </div>
                     </div>
                 </form>
 
@@ -39,7 +58,7 @@
                             <tr>
                                 <th>Nombre</th>
                                 <th>Contacto</th>
-                                <th>Ubicación</th>
+                                <th>Tipo</th>
                                 <th>Estado</th>
                                 <th class="text-end">Acciones</th>
                             </tr>
@@ -58,7 +77,17 @@
                                                     class="fas fa-phone text-muted me-2"></i>{{ $client->phone }}</div>
                                         @endif
                                     </td>
-                                    <td>{{ Str::limit($client->address, 40) ?? '-' }}</td>
+                                    <td>
+                                        @if($client->client_type == 'virtual')
+                                            <span class="badge bg-primary bg-opacity-10 text-primary px-2 py-1 small">
+                                                <i class="fas fa-globe me-1"></i>VIRTUAL
+                                            </span>
+                                        @else
+                                            <span class="badge bg-info bg-opacity-10 text-info px-2 py-1 small">
+                                                <i class="fas fa-store me-1"></i>PRESENCIAL
+                                            </span>
+                                        @endif
+                                    </td>
                                     <td>
                                         @if($client->status)
                                             <span
@@ -69,6 +98,10 @@
                                         @endif
                                     </td>
                                     <td class="text-end">
+                                        <a href="{{ route('clients.show', $client->id) }}"
+                                            class="btn btn-sm btn-light text-dark me-1" title="Ver Historial">
+                                            <i class="fas fa-history"></i>
+                                        </a>
                                         <button class="btn btn-sm btn-light text-primary me-1"
                                             onclick="openEditModal({{ $client }})" title="Editar">
                                             <i class="fas fa-edit"></i>
@@ -97,7 +130,11 @@
                     </table>
                 </div>
 
-                <!-- Pagination could go here -->
+                @if($clients->hasPages())
+                    <div class="mt-4">
+                        {{ $clients->links() }}
+                    </div>
+                @endif
 
             </div>
         </div>
@@ -117,7 +154,22 @@
                     <div class="modal-body">
                         <div class="row g-3">
                             <div class="col-12">
-                                <label class="form-label text-muted small fw-bold">INFORMACIÓN PERSONAL</label>
+                                <label class="form-label text-muted small fw-bold">TIPO DE CLIENTE</label>
+                                <div class="d-flex gap-3 mt-1">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="client_type" id="type_virtual"
+                                            value="virtual" required>
+                                        <label class="form-check-label" for="type_virtual">Virtual (Online)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="client_type" id="type_presencial"
+                                            value="presencial" checked required>
+                                        <label class="form-check-label" for="type_presencial">Presencial (Tienda)</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label text-muted small fw-bold mt-2">INFORMACIÓN PERSONAL</label>
                                 <input type="text" class="form-control" id="name" name="name" placeholder="Nombre Completo"
                                     required>
                             </div>
@@ -164,6 +216,7 @@
                 form.action = "{{ route('clients.store') }}";
                 methodField.value = "POST";
                 modalTitle.innerText = "Nuevo Cliente";
+                document.getElementById('type_presencial').checked = true;
                 document.getElementById('status').checked = true;
                 clientModal.show();
             }
@@ -178,6 +231,12 @@
                 document.getElementById('phone').value = client.phone || '';
                 document.getElementById('address').value = client.address || '';
                 document.getElementById('status').checked = client.status == 1;
+
+                if (client.client_type === 'virtual') {
+                    document.getElementById('type_virtual').checked = true;
+                } else {
+                    document.getElementById('type_presencial').checked = true;
+                }
 
                 clientModal.show();
             }

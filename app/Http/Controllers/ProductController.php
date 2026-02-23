@@ -61,7 +61,8 @@ class ProductController extends Controller
 
     public function show(Product $product)
     {
-        //
+        // Products use a modal-based UI, no dedicated show page
+        return redirect()->route('products.index');
     }
 
     public function edit(Product $product)

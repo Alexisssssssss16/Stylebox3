@@ -10,12 +10,21 @@ use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
-    public function __construct()
+    /**
+     * Returns role config metadata, merging DB permissions count dynamically.
+     */
+    private function getRoleConfig(): array
     {
-        $this->middleware('permission:users_list')->only('index');
-        $this->middleware('permission:users_create')->only(['create', 'store']);
-        $this->middleware('permission:users_edit')->only(['edit', 'update']);
-        $this->middleware('permission:users_delete')->only('destroy');
+        $config = config('roles', []);
+
+        // Merge live permission count from DB for each role
+        foreach (Role::with('permissions')->get() as $role) {
+            if (isset($config[$role->name])) {
+                $config[$role->name]['permission_count'] = $role->permissions->count();
+            }
+        }
+
+        return $config;
     }
 
     public function index(Request $request)
@@ -27,13 +36,19 @@ class UserController extends Controller
             })
             ->paginate(10);
 
-        return view('users.index', compact('users'));
+        return view('users.index', [
+            'users' => $users,
+            'roleConfig' => $this->getRoleConfig(),
+        ]);
     }
 
     public function create()
     {
-        $roles = Role::all();
-        return view('users.create', compact('roles'));
+        $roles = Role::orderBy('name')->get();
+        return view('users.create', [
+            'roles' => $roles,
+            'roleConfig' => $this->getRoleConfig(),
+        ]);
     }
 
     public function store(Request $request)
@@ -42,24 +57,37 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:8',
-            'roles' => 'required|array'
+            'role' => 'required|string|exists:roles,name',
         ]);
 
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'email_verified_at' => now(),
         ]);
 
-        $user->assignRole($request->roles);
+        $user->assignRole($request->role);
 
-        return redirect()->route('users.index')->with('success', 'Usuario creado correctamente.');
+        return redirect()->route('admin.users.index')->with('success', 'Usuario creado correctamente.');
+    }
+
+    public function show(User $user)
+    {
+        return view('users.show', [
+            'user' => $user->load('roles.permissions'),
+            'roleConfig' => $this->getRoleConfig(),
+        ]);
     }
 
     public function edit(User $user)
     {
-        $roles = Role::all();
-        return view('users.edit', compact('user', 'roles'));
+        $roles = Role::orderBy('name')->get();
+        return view('users.edit', [
+            'user' => $user,
+            'roles' => $roles,
+            'roleConfig' => $this->getRoleConfig(),
+        ]);
     }
 
     public function update(Request $request, User $user)
@@ -67,7 +95,6 @@ class UserController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)],
-            'roles' => 'required|array'
         ]);
 
         $user->update([
@@ -79,9 +106,43 @@ class UserController extends Controller
             $user->update(['password' => Hash::make($request->password)]);
         }
 
-        $user->syncRoles($request->roles);
+        return redirect()->route('admin.users.index')->with('success', 'Usuario actualizado correctamente.');
+    }
 
-        return redirect()->route('users.index')->with('success', 'Usuario actualizado correctamente.');
+    public function assignRoles(User $user)
+    {
+        $roles = Role::orderBy('name')->get();
+        return view('users.assign_roles', [
+            'user' => $user,
+            'roles' => $roles,
+            'roleConfig' => $this->getRoleConfig(),
+        ]);
+    }
+
+    public function updateRoles(Request $request, User $user)
+    {
+        $request->validate([
+            'role' => 'required|string|exists:roles,name',
+        ]);
+
+        $newRole = $request->role;
+
+        // Security: prevent removing 'admin' from last admin
+        if ($user->hasRole('admin') && $newRole !== 'admin') {
+            if (User::role('admin')->count() <= 1) {
+                return back()->with('error', 'No puedes quitar el rol de administrador al último administrador del sistema.');
+            }
+        }
+
+        $user->syncRoles([$newRole]);
+
+        $roleConfig = config('roles', []);
+        $roleLabel = $roleConfig[$newRole]['label'] ?? ucfirst($newRole);
+        $roleModules = $roleConfig[$newRole]['modules'] ?? [];
+        $modulesList = implode(', ', $roleModules);
+
+        return redirect()->route('admin.users.index')
+            ->with('success', "Rol de {$user->name} cambiado a {$roleLabel}. Ahora tiene acceso a: {$modulesList}.");
     }
 
     public function destroy(User $user)

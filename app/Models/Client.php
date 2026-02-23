@@ -18,6 +18,7 @@ class Client extends Model
         'phone',
         'address',
         'status',
+        'client_type',
     ];
 
     public function user()

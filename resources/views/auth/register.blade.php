@@ -1,4 +1,4 @@
-@extends('layouts.public')
+@extends('layouts.auth')
 
 @section('content')
     <div class="container d-flex align-items-center justify-content-center" style="min-height: 100vh;">

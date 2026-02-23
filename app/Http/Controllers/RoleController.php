@@ -5,86 +5,112 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 
 class RoleController extends Controller
 {
-    public function __construct()
+    /**
+     * Group permissions by their module prefix (before the dot).
+     */
+    private function groupPermissions($permissions): array
     {
-        $this->middleware('permission:roles_list')->only('index');
-        $this->middleware('permission:roles_create')->only(['create', 'store']);
-        $this->middleware('permission:roles_edit')->only(['edit', 'update']);
-        $this->middleware('permission:roles_delete')->only('destroy');
+        $grouped = [];
+        foreach ($permissions as $perm) {
+            $parts = explode('.', $perm->name, 2);
+            $module = $parts[0] ?? 'otros';
+            $action = $parts[1] ?? $perm->name;
+            $grouped[$module][] = $action;
+        }
+        return $grouped;
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $roles = Role::with('permissions')->paginate(10);
-        return view('roles.index', compact('roles'));
+        $roles = Role::with(['permissions', 'users'])->orderBy('id')->paginate(20);
+        $roleConfig = config('roles', []);
+
+        return view('roles.index', compact('roles', 'roleConfig'));
     }
 
     public function create()
     {
-        $permissions = Permission::all()->groupBy(function ($item) {
-            return explode('_', $item->name)[0];
-        });
-        return view('roles.create', compact('permissions'));
+        $allPermissions = Permission::orderBy('name')->get();
+        $grouped = $this->groupPermissions($allPermissions);
+        return view('roles.create', ['grouped' => $grouped, 'allPermissions' => $allPermissions]);
     }
 
     public function store(Request $request)
     {
         $request->validate([
             'name' => 'required|unique:roles,name',
-            'permissions' => 'required|array'
+            'permission' => 'required|array',
         ]);
 
-        $role = Role::create(['name' => $request->name]);
-        $role->syncPermissions($request->permissions);
+        $role = Role::create(['name' => $request->input('name')]);
+        $role->syncPermissions($request->input('permission'));
 
-        return redirect()->route('roles.index')->with('success', 'Rol creado correctamente.');
+        return redirect()->route('admin.roles.index')
+            ->with('success', 'Rol creado exitosamente.');
     }
 
-    public function edit(Role $role)
+    public function show($id)
     {
-        if ($role->name === 'admin') {
-            return redirect()->route('roles.index')->with('error', 'El rol Admin no se puede editar.');
-        }
+        $role = Role::with('permissions')->findOrFail($id);
+        $grouped = $this->groupPermissions($role->permissions);
+        $roleConfig = config('roles', []);
+        $cfg = $roleConfig[$role->name] ?? null;
 
-        $permissions = Permission::all()->groupBy(function ($item) {
-            return explode('_', $item->name)[0];
-        });
-
-        return view('roles.edit', compact('role', 'permissions'));
+        return view('roles.show', compact('role', 'grouped', 'cfg'));
     }
 
-    public function update(Request $request, Role $role)
+    public function edit($id)
     {
-        if ($role->name === 'admin') {
-            return redirect()->route('roles.index')->with('error', 'El rol Admin no se puede editar.');
-        }
+        $role = Role::findOrFail($id);
+        $allPermissions = Permission::orderBy('name')->get();
+        $grouped = $this->groupPermissions($allPermissions);
+        $rolePermissions = DB::table('role_has_permissions')
+            ->where('role_id', $id)
+            ->pluck('permission_id', 'permission_id')
+            ->all();
 
+        return view('roles.edit', compact('role', 'grouped', 'allPermissions', 'rolePermissions'));
+    }
+
+    public function update(Request $request, $id)
+    {
         $request->validate([
-            'name' => ['required', Rule::unique('roles', 'name')->ignore($role->id)],
-            'permissions' => 'required|array'
+            'name' => 'required',
+            'permission' => 'required|array',
         ]);
 
-        $role->update(['name' => $request->name]);
-        $role->syncPermissions($request->permissions);
+        $role = Role::findOrFail($id);
+        $role->name = $request->input('name');
+        $role->save();
+        $role->syncPermissions($request->input('permission'));
 
-        return redirect()->route('roles.index')->with('success', 'Rol actualizado correctamente.');
+        return redirect()->route('admin.roles.index')
+            ->with('success', 'Rol actualizado exitosamente.');
     }
 
-    public function destroy(Role $role)
+    public function destroy($id)
     {
-        if ($role->name === 'admin') {
-            return back()->with('error', 'No se puede eliminar el rol Admin.');
+        $role = Role::findOrFail($id);
+
+        // Prevent deleting system roles
+        if (in_array($role->name, ['admin', 'vendedor', 'comprador'])) {
+            return redirect()->route('admin.roles.index')
+                ->with('error', "No puedes eliminar el rol base «{$role->name}». Es parte del sistema.");
         }
 
+        // Prevent deleting role with users assigned
         if ($role->users()->count() > 0) {
-            return back()->with('error', 'No se puede eliminar un rol con usuarios asignados.');
+            return redirect()->route('admin.roles.index')
+                ->with('error', 'No puedes eliminar este rol porque tiene usuarios asignados.');
         }
 
         $role->delete();
-        return back()->with('success', 'Rol eliminado correctamente.');
+
+        return redirect()->route('admin.roles.index')
+            ->with('success', 'Rol eliminado exitosamente.');
     }
 }

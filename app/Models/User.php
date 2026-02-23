@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -10,7 +10,7 @@ use Illuminate\Notifications\Notifiable;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, \Spatie\Permission\Traits\HasRoles;
+    use HasFactory, \Spatie\Permission\Traits\HasRoles;
 
     /**
      * The attributes that are mass assignable.
@@ -21,6 +21,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'client_type',
     ];
 
     /**
@@ -44,5 +45,13 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Get the buyer's purchase history.
+     */
+    public function purchases()
+    {
+        return $this->hasMany(Sale::class, 'buyer_id')->latest();
     }
 }

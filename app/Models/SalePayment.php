@@ -11,7 +11,7 @@ class SalePayment extends Model
 
     protected $fillable = ['sale_id', 'payment_method_id', 'amount', 'reference'];
 
-    public function method()
+    public function paymentMethod()
     {
         return $this->belongsTo(PaymentMethod::class, 'payment_method_id');
     }

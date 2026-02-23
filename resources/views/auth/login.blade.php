@@ -1,4 +1,4 @@
-@extends('layouts.public')
+@extends('layouts.auth')
 
 @section('title', 'Iniciar Sesión - StyleBox')
 

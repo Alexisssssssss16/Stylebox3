@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'StyleBox')</title>
     <!-- Bootstrap 5 CSS -->
@@ -48,9 +49,18 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->is('/') || request()->is('catalogo') ? 'active fw-semibold' : '' }}"
+                            href="{{ route('home') }}">Catálogo</a>
+                    </li>
                     @auth
+                        @hasanyrole('admin|vendedor')
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('dashboard') ? 'active fw-semibold' : '' }}" href="{{ route('dashboard') }}">Dashboard</a>
+                            </li>
+                        @endhasanyrole
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ route('dashboard') }}">Dashboard</a>
+                            <a class="nav-link {{ request()->routeIs('historial.*') ? 'active fw-semibold' : '' }}" href="{{ route('historial.index') }}">Mis Compras</a>
                         </li>
                         <li class="nav-item">
                             <form action="{{ route('logout') }}" method="POST" class="d-inline">
@@ -82,6 +92,26 @@
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        @if(session('success'))
+            Swal.fire({
+                icon: 'success',
+                title: '¡Éxito!',
+                text: "{{ session('success') }}",
+                confirmButtonColor: '#1a1a1a'
+            });
+        @endif
+
+        @if(session('error'))
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: "{{ session('error') }}",
+                confirmButtonColor: '#1a1a1a'
+            });
+        @endif
+    </script>
     @stack('scripts')
 </body>
 

@@ -22,14 +22,35 @@ class Product extends Model
         'status',
     ];
 
+    /**
+     * Automatic type casting.
+     * status is stored as BOOLEAN (tinyint 0/1) in the DB.
+     */
+    protected $casts = [
+        'status' => 'boolean',
+        'price'  => 'decimal:2',
+        'cost'   => 'decimal:2',
+    ];
+
     public function measurementUnit()
     {
         return $this->belongsTo(MeasurementUnit::class);
     }
 
+    /**
+     * Scope: only active products (status = true / 1).
+     */
     public function scopeActive($query)
     {
         return $query->where('status', true);
+    }
+
+    /**
+     * Scope: only products with available stock.
+     */
+    public function scopeInStock($query)
+    {
+        return $query->where('stock', '>', 0);
     }
 
     public function hasStock(int $quantity): bool

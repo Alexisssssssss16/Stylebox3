@@ -2,6 +2,37 @@
 
 @section('title', 'Mis Compras')
 
+@push('styles')
+    <style>
+        .status-badge {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .status-pendiente_pago {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-pagado {
+            background: #cff4fc;
+            color: #055160;
+        }
+
+        .status-listo_recojo {
+            background: #d1e7dd;
+            color: #0a3622;
+        }
+
+        .status-recogido {
+            background: #e2e3e5;
+            color: #41464b;
+        }
+    </style>
+@endpush
+
 @section('content')
     <div class="row">
         <div class="col-12">
@@ -22,9 +53,11 @@
                                     <tr>
                                         <th class="ps-4"># Compra</th>
                                         <th>Fecha</th>
+                                        <th>Boleta</th>
                                         <th>Productos</th>
-                                        <th class="text-end pe-4">Total</th>
+                                        <th class="text-end">Total</th>
                                         <th class="text-center">Estado</th>
+                                        <th class="text-center pe-4">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -33,15 +66,27 @@
                                             <td class="ps-4 fw-bold">#{{ str_pad($sale->id, 5, '0', STR_PAD_LEFT) }}</td>
                                             <td>{{ $sale->date->format('d/m/Y H:i') }}</td>
                                             <td>
+                                                <code class="small fw-bold text-dark">{{ $sale->numero_boleta ?? '---' }}</code>
+                                            </td>
+                                            <td>
                                                 <ul class="list-unstyled mb-0 small">
                                                     @foreach($sale->details as $detail)
                                                         <li>{{ $detail->quantity }}x {{ $detail->product->name }}</li>
                                                     @endforeach
                                                 </ul>
                                             </td>
-                                            <td class="text-end pe-4 fw-bold">S/ {{ number_format($sale->total, 2) }}</td>
+                                            <td class="text-end fw-bold">S/ {{ number_format($sale->total, 2) }}</td>
                                             <td class="text-center">
-                                                <span class="badge bg-success bg-opacity-10 text-success">Completado</span>
+                                                <span
+                                                    class="badge status-badge status-{{ $sale->estado_pedido }} px-3 py-2 rounded-pill">
+                                                    {{ $sale->estadoPedidoLabel() }}
+                                                </span>
+                                            </td>
+                                            <td class="text-center pe-4">
+                                                <a href="{{ route('checkout.boleta', $sale) }}" target="_blank"
+                                                    class="btn btn-sm btn-outline-dark rounded-pill">
+                                                    <i class="fas fa-file-invoice me-1"></i>Ver
+                                                </a>
                                             </td>
                                         </tr>
                                     @endforeach
