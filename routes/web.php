@@ -56,6 +56,9 @@ Route::middleware(['auth'])->group(function () {
     // Shared Dashboard (Logic inside controller handles role redirection)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+    // Notificaciones dinámicas
+    Route::get('/api/notifications', [\App\Http\Controllers\NotificationController::class, 'getNotifications'])->name('api.notifications');
+
     // ── Shopping Cart ──────────────────────────────────────────────────────
     Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
     Route::post('/cart', [CartController::class, 'store'])->name('cart.store');
