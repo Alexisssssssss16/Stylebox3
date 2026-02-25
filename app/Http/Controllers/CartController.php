@@ -27,6 +27,7 @@ class CartController extends Controller
         $request->validate([
             'product_id' => 'required|integer|exists:products,id',
             'talla_id' => 'nullable|integer|exists:tallas,id',
+            'color_id' => 'nullable|integer|exists:colors,id',
             'quantity' => 'sometimes|integer|min:1|max:100',
         ]);
 
@@ -40,14 +41,22 @@ class CartController extends Controller
         }
 
         $talla = null;
+        $color = null;
         $maxStock = $product->stock;
 
-        if ($request->talla_id) {
-            $pt = $product->productoTallas()->where('talla_id', $request->talla_id)->with('talla')->first();
+        if ($request->talla_id || $request->color_id) {
+            $query = $product->productoTallas()->with(['talla', 'color']);
+            if ($request->talla_id)
+                $query->where('talla_id', $request->talla_id);
+            if ($request->color_id)
+                $query->where('color_id', $request->color_id);
+
+            $pt = $query->first();
             if (!$pt || !$pt->activo) {
-                return response()->json(['success' => false, 'message' => "La talla seleccionada no está disponible."], 422);
+                return response()->json(['success' => false, 'message' => "La combinación seleccionada no está disponible."], 422);
             }
             $talla = $pt->talla;
+            $color = $pt->color;
             $maxStock = $pt->stock;
         }
 
@@ -68,12 +77,20 @@ class CartController extends Controller
             $product->image,
             $requestedQty,
             $request->talla_id,
-            $talla?->nombre
+            $talla?->nombre,
+            $request->color_id,
+            $color?->name
         );
+
+        $variantMsg = "";
+        if ($talla)
+            $variantMsg .= " (Talla {$talla->nombre})";
+        if ($color)
+            $variantMsg .= " (Color {$color->name})";
 
         return response()->json([
             'success' => true,
-            'message' => "'{$product->name}'" . ($talla ? " (Talla {$talla->nombre})" : "") . " agregado al carrito.",
+            'message' => "'{$product->name}'{$variantMsg} agregado al carrito.",
             'count' => $this->cart->count(),
         ]);
     }
@@ -83,17 +100,23 @@ class CartController extends Controller
     {
         $request->validate([
             'quantity' => 'required|integer|min:0|max:100',
-            'talla_id' => 'nullable|integer'
+            'talla_id' => 'nullable|integer',
+            'color_id' => 'nullable|integer'
         ]);
 
         $product = Product::findOrFail($id);
 
         $maxStock = $product->stock;
-        if ($request->talla_id) {
-            $maxStock = $product->productoTallas()->where('talla_id', $request->talla_id)->first()?->stock ?? 0;
+        if ($request->talla_id || $request->color_id) {
+            $query = $product->productoTallas();
+            if ($request->talla_id)
+                $query->where('talla_id', $request->talla_id);
+            if ($request->color_id)
+                $query->where('color_id', $request->color_id);
+            $maxStock = $query->first()?->stock ?? 0;
         }
 
-        $this->cart->update($id, $request->quantity, $maxStock, $request->talla_id);
+        $this->cart->update($id, $request->quantity, $maxStock, $request->talla_id, $request->color_id);
 
         return response()->json([
             'success' => true,
@@ -105,7 +128,7 @@ class CartController extends Controller
     /** Remove an item from the cart (DELETE, returns JSON). */
     public function destroy(Request $request, int $id)
     {
-        $this->cart->remove($id, $request->talla_id);
+        $this->cart->remove($id, $request->talla_id, $request->color_id);
 
         return response()->json([
             'success' => true,

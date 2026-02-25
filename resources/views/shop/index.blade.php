@@ -92,6 +92,110 @@
         @media (min-width: 768px) {
             .mobile-feed-container { display: none; }
         }
+
+        /* --- OECHSLE STYLE FILTERS --- */
+        .filter-bar {
+            background: #fff;
+            padding: 1rem 0;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 1.5rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .filter-btn {
+            background: #f4f4f4;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #333;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        .filter-btn:hover {
+            background: #e9e9e9;
+        }
+        .filter-btn.active {
+            border-color: #333;
+            background: #fff;
+        }
+        .filter-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 14px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: #333;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .filter-pill .remove-pill {
+            margin-left: 8px;
+            cursor: pointer;
+            color: #999;
+            font-size: 1rem;
+        }
+        .filter-pill .remove-pill:hover {
+            color: #ff0000;
+        }
+        .clear-all {
+            color: #333;
+            font-weight: 600;
+            text-decoration: underline;
+            font-size: 0.85rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+        
+        /* Dropdown content custom */
+        .filter-dropdown-menu {
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: 1px solid #eee;
+            padding: 1rem;
+            min-width: 250px;
+        }
+        .color-dot {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: inline-block;
+            border: 1px solid #ddd;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px; width: 18px;
+            left: 3px; bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: #333; }
+        input:checked + .slider:before { transform: translateX(20px); }
     </style>
 @endpush
 
@@ -158,28 +262,142 @@
         @endforelse
     </div>
 
-    <!-- === DESKTOP VIEW (Grid/Classic) === -->
-    <div class="d-none d-md-block container py-5">
-        <!-- Header / Filters -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h1 class="fw-bold display-6">Nuestra Colección</h1>
-                <p class="text-muted">Descubre las últimas tendencias en moda.</p>
-            </div>
-            
-            <form action="{{ route('shop.index') }}" method="GET" class="d-flex gap-2 align-items-center">
-                <div class="input-group">
-                    <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
-                    <input type="text" name="search" class="form-control border-start-0 ps-0" placeholder="Buscar..." value="{{ request('search') }}">
+    <!-- === DESKTOP VIEW (Classic with Oechsle Filters) === -->
+    <div class="d-none d-md-block">
+        
+        <div class="filter-bar">
+            <div class="container d-flex flex-wrap align-items-center gap-3">
+                
+                {{-- Todos los filtros button --}}
+                <div class="dropdown">
+                    <button class="filter-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-sliders-h"></i> Todos los filtros
+                    </button>
+                    <div class="dropdown-menu filter-dropdown-menu p-4" style="width: 300px;">
+                        <form action="{{ route('shop.index') }}" method="GET">
+                            @if(request('search')) <input type="hidden" name="search" value="{{ request('search') }}"> @endif
+                            
+                            <label class="fw-bold mb-2">Rango de Precio</label>
+                            <div class="d-flex gap-2 mb-3">
+                                <input type="number" name="min_price" class="form-control" placeholder="Min" value="{{ request('min_price') }}">
+                                <input type="number" name="max_price" class="form-control" placeholder="Max" value="{{ request('max_price') }}">
+                            </div>
+                            
+                            <button type="submit" class="btn btn-dark w-100 rounded-pill">Aplicar</button>
+                        </form>
+                    </div>
                 </div>
-                <select name="category" class="form-select w-auto" onchange="this.form.submit()">
-                    <option value="">Todas las categorías</option>
-                    @foreach($categories as $cat)
-                        <option value="{{ $cat }}" {{ request('category') == $cat ? 'selected' : '' }}>{{ $cat }}</option>
-                    @endforeach
-                </select>
-            </form>
+
+                {{-- Tallas Dropdown --}}
+                <div class="dropdown">
+                    <button class="filter-btn {{ request('talla') ? 'active' : '' }}" type="button" data-bs-toggle="dropdown">
+                        Tallas <i class="fas fa-chevron-down small ms-1"></i>
+                    </button>
+                    <div class="dropdown-menu filter-dropdown-menu">
+                        <div class="row g-2">
+                            @foreach($tallas as $t)
+                                <div class="col-4">
+                                    <a class="btn btn-sm w-100 {{ request('talla') == $t->id ? 'btn-dark' : 'btn-outline-secondary' }}" 
+                                       href="{{ request()->fullUrlWithQuery(['talla' => $t->id]) }}">
+                                        {{ $t->nombre }}
+                                    </a>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Categorías/Marcas Dropdown --}}
+                <div class="dropdown">
+                    <button class="filter-btn {{ request('category') ? 'active' : '' }}" type="button" data-bs-toggle="dropdown">
+                        Categorías <i class="fas fa-chevron-down small ms-1"></i>
+                    </button>
+                    <div class="dropdown-menu filter-dropdown-menu">
+                        @foreach($categories as $cat)
+                            <a class="dropdown-item py-2 {{ request('category') == $cat ? 'fw-bold bg-light' : '' }}" 
+                               href="{{ request()->fullUrlWithQuery(['category' => $cat]) }}">
+                                {{ $cat }}
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+
+                {{-- Color Dropdown --}}
+                <div class="dropdown">
+                    <button class="filter-btn {{ request('color') ? 'active' : '' }}" type="button" data-bs-toggle="dropdown">
+                        Color <i class="fas fa-chevron-down small ms-1"></i>
+                    </button>
+                    <div class="dropdown-menu filter-dropdown-menu">
+                        <div class="d-flex flex-wrap gap-2">
+                            @foreach($colors as $color)
+                                <a href="{{ request()->fullUrlWithQuery(['color' => $color->id]) }}" 
+                                   class="p-1 border rounded d-flex align-items-center gap-2 text-decoration-none text-dark hover-light"
+                                   title="{{ $color->name }}"
+                                   style="min-width: 100px;">
+                                    <span class="color-dot" style="background-color: {{ $color->hex_code }}"></span>
+                                    <small>{{ $color->name }}</small>
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Envío Hoy Toggle (Simulado) --}}
+                <div class="d-flex align-items-center gap-2 ms-auto">
+                    <span class="fw-bold small">Envío hoy</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" onchange="Swal.fire({title: 'Filtro de envío', text: 'Esta función llegará pronto', icon: 'info', timer: 1500, showConfirmButton: false})">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            {{-- Active Filter Pills --}}
+            <div class="container mt-3">
+                @php
+                    $hasFilters = request()->hasAny(['talla', 'color', 'category', 'min_price', 'max_price', 'search']);
+                @endphp
+
+                @if($hasFilters)
+                    <div class="d-flex align-items-center flex-wrap">
+                        @if(request('search'))
+                            <div class="filter-pill">Búsqueda: "{{ request('search') }}" <span class="remove-pill" onclick="window.location.href='{{ request()->fullUrlWithQuery(['search' => null]) }}'">&times;</span></div>
+                        @endif
+                        @if(request('category'))
+                            <div class="filter-pill">{{ request('category') }} <span class="remove-pill" onclick="window.location.href='{{ request()->fullUrlWithQuery(['category' => null]) }}'">&times;</span></div>
+                        @endif
+                        @if(request('talla'))
+                            @php $tName = $tallas->where('id', request('talla'))->first()?->nombre ?? 'Talla'; @endphp
+                            <div class="filter-pill">Talla {{ $tName }} <span class="remove-pill" onclick="window.location.href='{{ request()->fullUrlWithQuery(['talla' => null]) }}'">&times;</span></div>
+                        @endif
+                        @if(request('color'))
+                            @php $cName = $colors->where('id', request('color'))->first()?->name ?? 'Color'; @endphp
+                            <div class="filter-pill">Color {{ $cName }} <span class="remove-pill" onclick="window.location.href='{{ request()->fullUrlWithQuery(['color' => null]) }}'">&times;</span></div>
+                        @endif
+                        @if(request('min_price') || request('max_price'))
+                            <div class="filter-pill">Precio: S/{{ request('min_price', 0) }} - S/{{ request('max_price', '+') }} <span class="remove-pill" onclick="window.location.href='{{ request()->fullUrlWithQuery(['min_price' => null, 'max_price' => null]) }}'">&times;</span></div>
+                        @endif
+
+                        <button class="clear-all ms-2 mb-2" onclick="window.location.href='{{ route('shop.index') }}'">Limpiar todo</button>
+                    </div>
+                @endif
+            </div>
         </div>
+
+        <div class="container mb-5">
+            <!-- Header Info -->
+            <div class="d-flex justify-content-between align-items-end mb-4">
+                <div>
+                    <h2 class="fw-bold mb-0">Resultados ({{ $products->total() }})</h2>
+                </div>
+                
+                <form action="{{ route('shop.index') }}" method="GET" class="d-flex gap-2">
+                    <div class="input-group" style="width: 300px;">
+                        <input type="text" name="search" class="form-control rounded-start-pill border-end-0" placeholder="¿Qué estás buscando hoy?" value="{{ request('search') }}">
+                        <button class="btn btn-outline-secondary rounded-end-pill border-start-0 px-3" type="submit"><i class="fas fa-search"></i></button>
+                    </div>
+                </form>
+            </div>
 
         <!-- Product Grid -->
         <div class="row g-4">

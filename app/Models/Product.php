@@ -13,6 +13,8 @@ class Product extends Model
         'code',
         'name',
         'category',
+        'brand',
+        'gender',
         'description',
         'image',
         'cost',
@@ -41,7 +43,7 @@ class Product extends Model
     public function productoTallas()
     {
         return $this->hasMany(ProductoTalla::class, 'producto_id')
-            ->with('talla')
+            ->with(['talla', 'color'])
             ->orderBy('talla_id');
     }
 
@@ -50,8 +52,20 @@ class Product extends Model
     {
         return $this->hasMany(ProductoTalla::class, 'producto_id')
             ->where('activo', true)
-            ->with('talla')
+            ->with(['talla', 'color'])
             ->orderBy('talla_id');
+    }
+
+    /** Colores únicos de este producto */
+    public function colors()
+    {
+        return $this->hasMany(ProductoTalla::class, 'producto_id')
+            ->where('activo', true)
+            ->whereNotNull('color_id')
+            ->with('color')
+            ->get()
+            ->pluck('color')
+            ->unique('id');
     }
 
     /* ------------------------------------------------------------------ */
@@ -86,12 +100,18 @@ class Product extends Model
 
     /**
      * ¿Tiene stock disponible?
-     * Acepta opcionalmente un talla_id para verificar una talla específica.
+     * Acepta opcionalmente talla_id y color_id para verificar una variante específica.
      */
-    public function hasStock(int $quantity, ?int $tallaId = null): bool
+    public function hasStock(int $quantity, ?int $tallaId = null, ?int $colorId = null): bool
     {
-        if ($tallaId) {
-            $pt = $this->productoTallas()->where('talla_id', $tallaId)->first();
+        if ($tallaId || $colorId) {
+            $query = $this->productoTallas();
+            if ($tallaId)
+                $query->where('talla_id', $tallaId);
+            if ($colorId)
+                $query->where('color_id', $colorId);
+
+            $pt = $query->first();
             return $pt && $pt->stock >= $quantity;
         }
 

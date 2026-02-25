@@ -13,6 +13,7 @@ class SaleDetail extends Model
         'sale_id',
         'product_id',
         'talla_id',
+        'color_id',
         'quantity',
         'unit_price',
         'subtotal',
@@ -26,5 +27,10 @@ class SaleDetail extends Model
     public function talla()
     {
         return $this->belongsTo(Talla::class);
+    }
+
+    public function color()
+    {
+        return $this->belongsTo(Color::class);
     }
 }

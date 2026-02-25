@@ -168,8 +168,20 @@
                                                         <h6 class="mb-0 fw-bold">
                                                             {{ $detail->product->name ?? 'Producto no encontrado' }}
                                                         </h6>
-                                                        <small
-                                                            class="text-muted">{{ $detail->product->category->name ?? '' }}</small>
+                                                        <div class="d-flex gap-2 mt-1">
+                                                            @if($detail->talla)
+                                                                <span class="badge bg-secondary" style="font-size: 0.7rem;">Talla: {{ $detail->talla->nombre }}</span>
+                                                            @endif
+                                                            @if($detail->color)
+                                                                <span class="badge bg-info text-dark d-flex align-items-center gap-1" style="font-size: 0.7rem;">
+                                                                    Color: {{ $detail->color->name }}
+                                                                    @if($detail->color->hex_code)
+                                                                        <span style="width:10px; height:10px; border-radius:50%; background:{{ $detail->color->hex_code }}; border:1px solid #ccc; display:inline-block;"></span>
+                                                                    @endif
+                                                                </span>
+                                                            @endif
+                                                        </div>
+                                                        <small class="text-muted d-block mt-1">{{ $detail->product->category->name ?? '' }}</small>
                                                     </div>
                                                 </div>
                                             </td>

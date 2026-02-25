@@ -16,7 +16,8 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SettingController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -75,6 +76,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/historial', [\App\Http\Controllers\HistorialController::class, 'index'])->name('historial.index');
     Route::get('/historial/{sale}', [\App\Http\Controllers\HistorialController::class, 'show'])->name('historial.show');
     Route::post('/historial/{sale}/repetir', [\App\Http\Controllers\HistorialController::class, 'repeatOrder'])->name('historial.repeat');
+
+    // ── Perfil de Usuario ────────────────────────────────
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
     // --- Admin & Staff Routes (Protected by Roles/Permissions ideally) ---
     Route::middleware(['role:admin|vendedor'])->group(function () {
@@ -142,6 +147,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/pedidos-virtuales/{pedido}', [AdminPedidoController::class, 'show'])->name('pedidos.show')->middleware('permission:pedidos.virtuales.manage');
         Route::post('/pedidos-virtuales/{pedido}/confirmar', [AdminPedidoController::class, 'confirmarPago'])->name('pedidos.confirmar')->middleware('permission:pedidos.virtuales.manage');
         Route::patch('/pedidos-virtuales/{pedido}/estado', [AdminPedidoController::class, 'cambiarEstado'])->name('pedidos.estado.update')->middleware('permission:pedidos.virtuales.manage');
+
+        // ── Configuración Global ─────────────────────────────
+        Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
+        Route::put('/settings', [SettingController::class, 'update'])->name('settings.update');
     });
 
 });

@@ -56,7 +56,7 @@ class AdminPedidoController extends Controller
                 ->with('error', 'El pedido no es una venta virtual.');
         }
 
-        $pedido->load(['details.product', 'buyer', 'client', 'confirmador', 'payments.paymentMethod']);
+        $pedido->load(['details.product', 'details.talla', 'details.color', 'buyer', 'client', 'confirmador', 'payments.paymentMethod']);
         $estados = Sale::ESTADOS;
 
         return view('admin.pedidos.show', compact('pedido', 'estados'));

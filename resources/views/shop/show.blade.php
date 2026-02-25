@@ -229,6 +229,28 @@
         .qty-control input[type=number] {
             -moz-appearance: textfield;
         }
+
+        /* Color circles */
+        .color-selector-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid #ddd;
+            padding: 2px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-block;
+            background-clip: content-box;
+        }
+
+        .color-selector-btn.active {
+            border-color: #000;
+            transform: scale(1.1);
+        }
+
+        .color-selector-btn:hover {
+            transform: scale(1.1);
+        }
     </style>
 @endpush
 
@@ -302,15 +324,26 @@
             @if($product->stock > 0)
                 {{-- Selector de Talla --}}
                 @if($product->usaTallas())
-                    <label class="text-muted small fw-bold mb-2 d-block">SELECCIONA TALLA</label>
-                    <div class="d-flex flex-wrap gap-2 mb-4">
-                        @foreach($product->productoTallas()->with('talla')->where('activo', true)->get() as $pt)
-                            <button type="button" 
-                                class="btn btn-outline-dark size-btn" 
-                                data-talla-id="{{ $pt->talla_id }}"
-                                data-stock="{{ $pt->stock }}"
+                    {{-- Selector de Color (Oechsle Style) --}}
+                    @php $productColors = $product->colors(); @endphp
+                    @if($productColors->count() > 0)
+                        <label class="text-muted small fw-bold mb-2 d-block">COLOR</label>
+                        <div class="d-flex flex-wrap gap-3 mb-3">
+                            @foreach($productColors as $color)
+                                <div class="color-selector-btn color-btn-mobile" style="background-color: {{ $color->hex_code }}"
+                                    onclick="selectColor({{ $color->id }}, this)" title="{{ $color->name }}">
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    <label class="text-muted small fw-bold mb-2 d-block">TALLA</label>
+                    <div class="d-flex flex-wrap gap-2 mb-4" id="tallas-container-mobile">
+                        @foreach($product->tallaActivas as $pt)
+                            <button type="button" class="btn btn-outline-dark size-btn mobile-size-btn"
+                                data-talla-id="{{ $pt->talla_id }}" data-color-id="{{ $pt->color_id }}" data-stock="{{ $pt->stock }}"
                                 onclick="selectTalla({{ $pt->talla_id }}, {{ $pt->stock }}, this)"
-                                {{ $pt->stock <= 0 ? 'disabled' : '' }}>
+                                style="display: {{ $productColors->count() > 0 ? 'none' : 'block' }}">
                                 {{ $pt->talla->nombre }}
                             </button>
                         @endforeach
@@ -436,19 +469,32 @@
                         </div>
                     </div>
 
-                    {{-- Size selector --}}
+                    {{-- Color selector --}}
                     @if($product->usaTallas())
+                        @php $productColors = $product->colors(); @endphp
+                        @if($productColors->count() > 0)
+                            <div class="mb-3">
+                                <label class="text-muted small fw-bold mb-2 d-block">COLOR</label>
+                                <div class="d-flex flex-wrap gap-3">
+                                    @foreach($productColors as $color)
+                                        <div class="color-selector-btn color-btn-desktop"
+                                            style="background-color: {{ $color->hex_code }}"
+                                            onclick="selectColor({{ $color->id }}, this)" title="{{ $color->name }}">
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+
                         <div class="mb-4">
-                            <label class="text-muted small fw-bold mb-2 d-block">SELECCIONA TALLA</label>
-                            <div class="d-flex flex-wrap gap-2">
-                                @foreach($product->productoTallas()->with('talla')->where('activo', true)->get() as $pt)
-                                    <button type="button" 
-                                        class="btn btn-outline-dark px-3 size-btn" 
-                                        style="border-radius: 8px; min-width: 45px;"
-                                        data-talla-id="{{ $pt->talla_id }}"
+                            <label class="text-muted small fw-bold mb-2 d-block">TALLA</label>
+                            <div class="d-flex flex-wrap gap-2" id="tallas-container-desktop">
+                                @foreach($product->tallaActivas as $pt)
+                                    <button type="button" class="btn btn-outline-dark px-3 size-btn desktop-size-btn"
+                                        style="border-radius: 8px; min-width: 45px; display: {{ $productColors->count() > 0 ? 'none' : 'block' }}"
+                                        data-talla-id="{{ $pt->talla_id }}" data-color-id="{{ $pt->color_id }}"
                                         data-stock="{{ $pt->stock }}"
-                                        onclick="selectTalla({{ $pt->talla_id }}, {{ $pt->stock }}, this)"
-                                        {{ $pt->stock <= 0 ? 'disabled' : '' }}>
+                                        onclick="selectTalla({{ $pt->talla_id }}, {{ $pt->stock }}, this)">
                                         {{ $pt->talla->nombre }}
                                     </button>
                                 @endforeach
@@ -538,16 +584,47 @@
         }
 
         let selectedTallaId = null;
+        let selectedColorId = null;
         let currentMaxStock = {{ $product->stock }};
+
+        function selectColor(colorId, btn) {
+            selectedColorId = colorId;
+            selectedTallaId = null; // Reset size on color change
+
+            // UI state for colors
+            document.querySelectorAll('.color-selector-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Filter sizes that match this color
+            document.querySelectorAll('.size-btn').forEach(s => {
+                if (s.dataset.colorId == colorId) {
+                    s.style.display = 'block';
+                    s.classList.remove('btn-dark', 'active');
+                    s.classList.add('btn-outline-dark');
+                    // Disable if no stock
+                    if (parseInt(s.dataset.stock) <= 0) {
+                        s.disabled = true;
+                        s.style.opacity = '0.5';
+                    } else {
+                        s.disabled = false;
+                        s.style.opacity = '1';
+                    }
+                } else {
+                    s.style.display = 'none';
+                }
+            });
+        }
 
         function selectTalla(tallaId, stock, btn) {
             selectedTallaId = tallaId;
             currentMaxStock = stock;
-            
-            // UI state
+
+            // UI state for sizes
             document.querySelectorAll('.size-btn').forEach(b => {
-                b.classList.remove('btn-dark', 'active');
-                b.classList.add('btn-outline-dark');
+                if (b.classList.contains('active')) {
+                    b.classList.remove('btn-dark', 'active');
+                    b.classList.add('btn-outline-dark');
+                }
             });
             btn.classList.remove('btn-outline-dark');
             btn.classList.add('btn-dark', 'active');
@@ -564,15 +641,16 @@
 
         async function handleBuy(source) {
             const qty = getQty();
-            
+
             @if($product->usaTallas())
                 if (!selectedTallaId) {
-                    Swal.fire({ icon: 'warning', title: 'Selecciona una talla', text: 'Por favor, elige una talla antes de continuar.', confirmButtonColor: '#1a1a1a' });
+                    const msg = @if($product->colors()->count() > 0) 'Por favor, selecciona color y talla.' @else'Por favor, selecciona una talla.' @endif;
+                    Swal.fire({ icon: 'warning', title: 'Selección requerida', text: msg, confirmButtonColor: '#1a1a1a' });
                     return;
                 }
             @endif
 
-            const btn = source === 'desktop'
+                const btn = source === 'desktop'
                 ? document.querySelector('.btn-buy-desktop')
                 : document.querySelector('.buy-bar-mobile .btn');
 
@@ -593,6 +671,7 @@
                     body: JSON.stringify({
                         product_id: {{ $product->id }},
                         talla_id: selectedTallaId,
+                        color_id: selectedColorId,
                         quantity: qty,
                     }),
                 });

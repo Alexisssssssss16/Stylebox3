@@ -55,12 +55,23 @@
                         <input type="text" name="producto" class="form-control form-control-sm"
                             placeholder="Nombre del producto..." value="{{ request('producto') }}">
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label small fw-semibold">Tipo de talla</label>
                         <select name="tipo" class="form-select form-select-sm">
                             <option value="">Todos los tipos</option>
-                            <option value="superior" @selected(request('tipo') === 'superior')>Superior (S - XXL)</option>
-                            <option value="inferior" @selected(request('tipo') === 'inferior')>Inferior (28 - 40)</option>
+                            <option value="superior" @selected(request('tipo') === 'superior')>Superior</option>
+                            <option value="inferior" @selected(request('tipo') === 'inferior')>Inferior</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold">Color</label>
+                        <select name="color" class="form-select form-select-sm">
+                            <option value="">Todos los colores</option>
+                            @foreach($colors as $color)
+                                <option value="{{ $color->id }}" @selected(request('color') == $color->id)>
+                                    {{ $color->name }}
+                                </option>
+                            @endforeach
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -93,11 +104,10 @@
                             <tr>
                                 <th class="ps-3">Producto</th>
                                 <th>Categoría</th>
+                                <th>Color</th>
                                 <th>Talla</th>
-                                <th>Tipo</th>
                                 <th class="text-center">Stock</th>
                                 <th class="text-center">Estado</th>
-                                <th class="text-center">Activo</th>
                                 <th class="text-center pe-3">Acciones</th>
                             </tr>
                         </thead>
@@ -115,14 +125,17 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <span class="fw-bold fs-5">{{ $registro->talla->nombre }}</span>
+                                        <span class="badge bg-light text-dark border d-flex align-items-center gap-1 w-fit">
+                                            <span
+                                                style="width:10px; height:10px; border-radius:50%; background:{{ $registro->color?->hex_code ?? '#ccc' }}; border:1px solid #ddd;"></span>
+                                            {{ $registro->color?->name ?? 'N/A' }}
+                                        </span>
                                     </td>
                                     <td>
-                                        @if($registro->talla->tipo === 'superior')
-                                            <span class="badge bg-info bg-opacity-10 text-info">👕 Superior</span>
-                                        @else
-                                            <span class="badge bg-purple bg-opacity-10 text-secondary">👖 Inferior</span>
-                                        @endif
+                                        <span class="fw-bold fs-6">{{ $registro->talla->nombre }}</span>
+                                        <small class="text-muted d-block" style="font-size: 0.7rem;">
+                                            {{ $registro->talla->tipo === 'superior' ? 'Superior' : 'Inferior' }}
+                                        </small>
                                     </td>
                                     <td class="text-center">
                                         <span
@@ -139,17 +152,11 @@
                                             <span class="badge bg-success">✅ Disponible</span>
                                         @endif
                                     </td>
-                                    <td class="text-center">
-                                        @if($registro->activo)
-                                            <span class="badge bg-success bg-opacity-10 text-success">Activo</span>
-                                        @else
-                                            <span class="badge bg-secondary bg-opacity-10 text-secondary">Inactivo</span>
-                                        @endif
-                                    </td>
                                     <td class="text-center pe-3">
                                         <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
                                             data-bs-target="#editStockModal" data-pt-id="{{ $registro->id }}"
                                             data-producto="{{ $registro->producto->name }}"
+                                            data-color="{{ $registro->color?->name ?? 'N/A' }}"
                                             data-talla="{{ $registro->talla->nombre }}" data-stock="{{ $registro->stock }}"
                                             data-activo="{{ $registro->activo ? '1' : '0' }}"
                                             data-url="{{ route('product.tallas.update', [$registro->producto_id, $registro->id]) }}"
@@ -191,6 +198,7 @@
                     <div class="modal-body">
                         <p class="text-muted small mb-3">
                             Producto: <strong id="modal-producto"></strong><br>
+                            Color: <strong id="modal-color"></strong><br>
                             Talla: <strong id="modal-talla"></strong>
                         </p>
                         <div class="mb-3">
@@ -221,6 +229,7 @@
             modal.addEventListener('show.bs.modal', function (event) {
                 const btn = event.relatedTarget;
                 document.getElementById('modal-producto').textContent = btn.dataset.producto;
+                document.getElementById('modal-color').textContent = btn.dataset.color;
                 document.getElementById('modal-talla').textContent = btn.dataset.talla;
                 document.getElementById('modal-stock').value = btn.dataset.stock;
                 document.getElementById('modal-activo').checked = btn.dataset.activo === '1';

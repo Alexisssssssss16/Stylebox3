@@ -18,7 +18,7 @@ class HistorialController extends Controller
     public function index()
     {
         $purchases = Auth::user()->purchases()
-            ->with(['details.product'])
+            ->with(['details.product', 'details.talla', 'details.color'])
             ->paginate(10);
 
         return view('shop.historial.index', compact('purchases'));
@@ -34,7 +34,7 @@ class HistorialController extends Controller
             abort(403);
         }
 
-        $sale->load(['details.product', 'payments.paymentMethod']);
+        $sale->load(['details.product', 'details.talla', 'details.color', 'payments.paymentMethod']);
 
         return view('shop.historial.show', compact('sale'));
     }
@@ -52,17 +52,43 @@ class HistorialController extends Controller
         $itemsAdded = 0;
         foreach ($sale->details as $detail) {
             $product = $detail->product;
-            if ($product && $product->stock > 0) {
-                $qty = min($detail->quantity, $product->stock);
-                $cart->add(
-                    $product->id,
-                    $product->name,
-                    (float) $product->price,
-                    $product->stock,
-                    $product->image,
-                    (int) $qty
-                );
-                $itemsAdded++;
+            if ($product) {
+                // Verificar stock de la variante específica
+                if ($detail->talla_id || $detail->color_id) {
+                    $pt = $product->productoTallas()
+                        ->where('talla_id', $detail->talla_id)
+                        ->where('color_id', $detail->color_id)
+                        ->where('activo', true)
+                        ->first();
+
+                    if ($pt && $pt->stock > 0) {
+                        $qty = min($detail->quantity, $pt->stock);
+                        $cart->add(
+                            $product->id,
+                            $product->name,
+                            (float) $product->price,
+                            $pt->stock,
+                            $product->image,
+                            (int) $qty,
+                            $detail->talla_id,
+                            $detail->talla?->nombre,
+                            $detail->color_id,
+                            $detail->color?->name
+                        );
+                        $itemsAdded++;
+                    }
+                } else if ($product->stock > 0) {
+                    $qty = min($detail->quantity, $product->stock);
+                    $cart->add(
+                        $product->id,
+                        $product->name,
+                        (float) $product->price,
+                        $product->stock,
+                        $product->image,
+                        (int) $qty
+                    );
+                    $itemsAdded++;
+                }
             }
         }
 

@@ -53,6 +53,7 @@ class CheckoutController extends Controller
         $cartItems = $this->cart->items()->map(fn($item) => [
             'id' => $item['id'],
             'talla_id' => $item['talla_id'] ?? null,
+            'color_id' => $item['color_id'] ?? null,
             'quantity' => $item['quantity'],
         ])->values()->toArray();
 

@@ -131,7 +131,10 @@
         @else
             <div class="cart-card mb-3">
                 @foreach($items as $item)
-                    <div class="cart-item" id="cart-item-{{ $item['id'] }}-{{ $item['talla_id'] ?? 0 }}">
+                    @php 
+                        $variantKey = $item['id'] . '-' . ($item['talla_id'] ?? 0) . '-' . ($item['color_id'] ?? 0); 
+                    @endphp
+                    <div class="cart-item" id="cart-item-{{ $variantKey }}">
                         @if($item['image'])
                             <img src="{{ asset('storage/' . $item['image']) }}" class="cart-thumb" alt="{{ $item['name'] }}">
                         @else
@@ -140,29 +143,42 @@
 
                         <div class="flex-grow-1">
                             <div class="fw-semibold">{{ $item['name'] }}</div>
-                            @if($item['talla'])
-                                <div class="badge bg-light text-dark border fw-normal py-1 px-2 mt-1" style="font-size: 0.75rem;">
-                                    Talla: <span class="fw-bold">{{ $item['talla'] }}</span>
-                                </div>
-                            @endif
+                            <div class="d-flex flex-wrap gap-2 mt-1">
+                                @if($item['talla'])
+                                    <div class="badge bg-light text-dark border fw-normal py-1 px-2" style="font-size: 0.75rem;">
+                                        Talla: <span class="fw-bold">{{ $item['talla'] }}</span>
+                                    </div>
+                                @endif
+                                @if($item['color'])
+                                    <div class="badge bg-light text-dark border fw-normal py-1 px-2 d-flex align-items-center gap-1" style="font-size: 0.75rem;">
+                                        Color: <span class="fw-bold">{{ $item['color'] }}</span>
+                                        @if($item['hex'])
+                                            <span style="width:10px; height:10px; border-radius:50%; background:{{ $item['hex'] }}; border:1px solid #ccc; display:inline-block;"></span>
+                                        @endif
+                                    </div>
+                                @endif
+                            </div>
                             <div class="text-muted small mt-1">S/ {{ number_format($item['price'], 2) }} c/u</div>
                         </div>
 
+                        @php 
+                            $variantKey = $item['id'] . '-' . ($item['talla_id'] ?? 0) . '-' . ($item['color_id'] ?? 0); 
+                        @endphp
                         <div class="qty-ctrl">
                             <button type="button"
-                                onclick="updateQty({{ $item['id'] }}, -1, {{ $item['talla_id'] ?? 'null' }})">−</button>
-                            <span id="qty-{{ $item['id'] }}-{{ $item['talla_id'] ?? 0 }}">{{ $item['quantity'] }}</span>
+                                onclick="updateQty({{ $item['id'] }}, -1, {{ $item['talla_id'] ?? 'null' }}, {{ $item['color_id'] ?? 'null' }})">−</button>
+                            <span id="qty-{{ $variantKey }}">{{ $item['quantity'] }}</span>
                             <button type="button"
-                                onclick="updateQty({{ $item['id'] }}, 1, {{ $item['talla_id'] ?? 'null' }})">+</button>
+                                onclick="updateQty({{ $item['id'] }}, 1, {{ $item['talla_id'] ?? 'null' }}, {{ $item['color_id'] ?? 'null' }})">+</button>
                         </div>
-
-                        <div class="fw-bold ms-2" id="price-{{ $item['id'] }}-{{ $item['talla_id'] ?? 0 }}"
+        
+                        <div class="fw-bold ms-2" id="price-{{ $variantKey }}"
                             style="min-width:70px; text-align:right;">
                             S/ {{ number_format($item['price'] * $item['quantity'], 2) }}
                         </div>
-
+        
                         <button class="btn btn-sm text-danger p-1 ms-1"
-                            onclick="removeItem({{ $item['id'] }}, {{ $item['talla_id'] ?? 'null' }})">
+                            onclick="removeItem({{ $item['id'] }}, {{ $item['talla_id'] ?? 'null' }}, {{ $item['color_id'] ?? 'null' }})">
                             <i class="fas fa-trash-alt"></i>
                         </button>
                     </div>
@@ -203,14 +219,14 @@
         /**
          * Update quantity via Fetch API
          */
-        async function updateQty(id, delta, tallaId = null) {
-            const key = tallaId ? `${id}-${tallaId}` : `${id}-0`;
+        async function updateQty(id, delta, tallaId = null, colorId = null) {
+            const key = `${id}-${tallaId ?? 0}-${colorId ?? 0}`;
             const qtyEl = document.getElementById('qty-' + key);
             let currentQty = parseInt(qtyEl.textContent);
             let newQty = currentQty + delta;
 
             if (newQty < 1) {
-                return removeItem(id, tallaId);
+                return removeItem(id, tallaId, colorId);
             }
 
             try {
@@ -223,7 +239,8 @@
                     },
                     body: JSON.stringify({
                         quantity: newQty,
-                        talla_id: tallaId
+                        talla_id: tallaId,
+                        color_id: colorId
                     })
                 });
 
@@ -254,8 +271,8 @@
         /**
          * Remove item from cart
          */
-        async function removeItem(id, tallaId = null) {
-            const key = tallaId ? `${id}-${tallaId}` : `${id}-0`;
+        async function removeItem(id, tallaId = null, colorId = null) {
+            const key = `${id}-${tallaId ?? 0}-${colorId ?? 0}`;
             const result = await Swal.fire({
                 title: '¿Eliminar producto?',
                 text: "Se quitará de tu carrito de compras.",
@@ -279,7 +296,8 @@
                     },
                     body: JSON.stringify({
                         _method: 'DELETE',
-                        talla_id: tallaId
+                        talla_id: tallaId,
+                        color_id: colorId
                     })
                 });
 

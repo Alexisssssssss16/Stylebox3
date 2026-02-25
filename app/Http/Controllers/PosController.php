@@ -21,7 +21,7 @@ class PosController extends Controller
     public function index()
     {
         $products = Product::active()
-            ->with(['productoTallas' => fn($q) => $q->where('activo', true)->with('talla')])
+            ->with(['productoTallas' => fn($q) => $q->where('activo', true)->with(['talla', 'color'])])
             ->get();
         $clients = Client::where('status', true)->get();
         $paymentMethods = PaymentMethod::where('status', true)->get();

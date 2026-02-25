@@ -9,6 +9,9 @@ use App\Models\SaleDetail;
 use App\Models\SalePayment;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Events\VentaRealizadaEvent;
+use App\Events\StockActualizadoEvent;
+use App\Http\Controllers\DashboardStatsController;
 use Exception;
 
 class SaleService
@@ -44,17 +47,26 @@ class SaleService
                 $product = Product::lockForUpdate()->findOrFail($item['id']);
                 $tallaId = $item['talla_id'] ?? null;
 
-                // Validar stock: por talla si aplica, o por producto si no tiene tallas
-                if ($tallaId) {
-                    $pt = ProductoTalla::where('producto_id', $product->id)
-                        ->where('talla_id', $tallaId)
-                        ->where('activo', true)
-                        ->lockForUpdate()
-                        ->first();
+                // Validar stock: por talla/color si aplica, o por producto si no tiene variantes
+                if ($tallaId || ($item['color_id'] ?? null)) {
+                    $query = ProductoTalla::where('producto_id', $product->id)
+                        ->where('activo', true);
+
+                    if ($tallaId)
+                        $query->where('talla_id', $tallaId);
+                    if ($item['color_id'] ?? null)
+                        $query->where('color_id', $item['color_id']);
+
+                    $pt = $query->lockForUpdate()->first();
 
                     if (!$pt || $pt->stock < $item['quantity']) {
-                        $tallaLabel = $pt ? $pt->talla->nombre : "desconocida";
-                        throw new Exception("Stock insuficiente para: {$product->name} (talla {$tallaLabel})");
+                        $variantLabel = "";
+                        if ($pt && $pt->talla)
+                            $variantLabel .= "talla " . $pt->talla->nombre;
+                        if ($pt && $pt->color)
+                            $variantLabel .= ($variantLabel ? ", " : "") . "color " . $pt->color->name;
+
+                        throw new Exception("Stock insuficiente para: {$product->name} (" . ($variantLabel ?: "variante desconocida") . ")");
                     }
                 } else {
                     if (!$product->hasStock($item['quantity'])) {
@@ -69,7 +81,8 @@ class SaleService
                 $cartItems[] = [
                     'product' => $product,
                     'talla_id' => $tallaId,
-                    'pt' => $tallaId ? ($pt ?? null) : null,
+                    'color_id' => $item['color_id'] ?? null,
+                    'pt' => ($tallaId || ($item['color_id'] ?? null)) ? ($pt ?? null) : null,
                     'quantity' => $item['quantity'],
                     'price' => $price,
                     'subtotal' => $itemSubtotal,
@@ -122,17 +135,18 @@ class SaleService
                     'sale_id' => $sale->id,
                     'product_id' => $item['product']->id,
                     'talla_id' => $item['talla_id'],
+                    'color_id' => $item['color_id'],
                     'quantity' => $item['quantity'],
                     'unit_price' => $item['price'],
                     'subtotal' => $item['subtotal'],
                 ]);
 
-                // Descontar stock: por talla si aplica, por producto si no tiene tallas
-                if ($item['talla_id'] && $item['pt']) {
+                // Descontar stock: por variante si aplica, por producto si no tiene variantes
+                if (($item['talla_id'] || $item['color_id']) && $item['pt']) {
                     $item['pt']->decrement('stock', $item['quantity']);
-                    // Desactivar talla si llega a 0
-                    if ($item['pt']->fresh()->stock === 0) {
-                        $item['pt']->update(['activo' => false]);
+                    // Desactivar variante si llega a 0
+                    if ($item['pt']->fresh()->stock <= 0) {
+                        $item['pt']->update(['activo' => false, 'stock' => 0]);
                     }
                     // Sincronizar el stock total del producto
                     $item['product']->sincronizarStock();
@@ -149,6 +163,17 @@ class SaleService
                     'amount' => $payment['amount'],
                     'reference' => $payment['reference'] ?? null,
                 ]);
+            }
+
+            // ── 7. Trigger Real-time updates ───────────────────────────────
+            try {
+                $statsController = new DashboardStatsController();
+                $stats = $statsController->prepareAdminStatsPayload();
+
+                broadcast(new VentaRealizadaEvent($stats));
+                broadcast(new StockActualizadoEvent($stats));
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error("Real-time broadcast failed: " . $e->getMessage());
             }
 
             return $sale;

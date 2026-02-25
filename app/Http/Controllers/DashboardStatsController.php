@@ -14,38 +14,48 @@ class DashboardStatsController extends Controller
 {
     public function getAdminStats()
     {
+        return response()->json($this->prepareAdminStatsPayload());
+    }
+
+    /**
+     * Prepara el payload completo de estadísticas para Admin.
+     * Reutilizado para carga inicial y eventos de broadcasting.
+     */
+    public function prepareAdminStatsPayload()
+    {
         // 1. Totals
-        $totalSales = Sale::sum('total');
-        $totalSalesToday = Sale::whereDate('created_at', today())->sum('total');
+        $totalSales = Sale::sum('total') ?? 0;
+        $totalSalesToday = Sale::whereDate('created_at', today())->sum('total') ?? 0;
         $transactionCount = Sale::count();
         $productsLowStock = Product::where('stock', '<', 5)->count();
         $totalUsers = User::count();
 
-        // 2. Best Selling Product
+        // 2. Best Selling Product (Volume + Total)
         $bestSeller = DB::table('sale_details')
             ->join('products', 'sale_details.product_id', '=', 'products.id')
-            ->select('products.name', DB::raw('SUM(sale_details.quantity) as total_qty'))
-            ->groupBy('products.name')
+            ->select('products.name', DB::raw('SUM(sale_details.quantity) as total_qty'), DB::raw('SUM(sale_details.subtotal) as total_revenue'))
+            ->groupBy('products.name', 'products.id')
             ->orderByDesc('total_qty')
             ->first();
 
-        // 3. Sales Chart (Last 7 days) - Optimized
+        // 3. Sales Chart (Last 7 days)
         $salesChart = Sale::select(DB::raw('DATE(created_at) as sale_date'), DB::raw('SUM(total) as total'))
             ->where('created_at', '>=', now()->subDays(7))
             ->groupBy('sale_date')
             ->orderBy('sale_date')
             ->get();
 
-        return response()->json([
+        return [
             'totalSales' => number_format($totalSales, 2),
             'totalSalesToday' => number_format($totalSalesToday, 2),
             'transactionCount' => $transactionCount,
             'productsLowStock' => $productsLowStock,
             'totalUsers' => $totalUsers,
-            'bestSeller' => $bestSeller ? $bestSeller->name : 'N/A',
+            'bestSeller' => $bestSeller ? $bestSeller->name : 'Sin ventas aún',
+            'bestSellerRevenue' => $bestSeller ? number_format($bestSeller->total_revenue, 2) : '0.00',
             'chartLabels' => $salesChart->pluck('sale_date'),
             'chartData' => $salesChart->pluck('total'),
-        ]);
+        ];
     }
 
     public function getSellerStats()

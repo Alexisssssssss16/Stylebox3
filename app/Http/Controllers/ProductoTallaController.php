@@ -7,6 +7,8 @@ use App\Models\ProductoTalla;
 use App\Models\Talla;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Events\StockActualizadoEvent;
+use App\Http\Controllers\DashboardStatsController;
 
 class ProductoTallaController extends Controller
 {
@@ -35,7 +37,7 @@ class ProductoTallaController extends Controller
      */
     public function json(Product $product)
     {
-        $tallas = ProductoTalla::with('talla')
+        $tallas = ProductoTalla::with(['talla', 'color'])
             ->where('producto_id', $product->id)
             ->join('tallas', 'tallas.id', '=', 'producto_tallas.talla_id')
             ->orderBy('tallas.tipo')
@@ -46,6 +48,9 @@ class ProductoTallaController extends Controller
                 'id' => $pt->id,
                 'talla' => $pt->talla->nombre,
                 'tipo' => $pt->talla->tipo,
+                'color_id' => $pt->color_id,
+                'color_name' => $pt->color?->name ?? 'N/A',
+                'color_hex' => $pt->color?->hex_code,
                 'stock' => $pt->stock,
                 'activo' => (bool) $pt->activo,
             ]);
@@ -67,12 +72,17 @@ class ProductoTallaController extends Controller
 
         $request->validate([
             'talla_id' => 'required|exists:tallas,id',
+            'color_id' => 'nullable|exists:colors,id',
             'stock' => 'required|integer|min:0',
             'activo' => 'boolean',
         ]);
 
         $pt = ProductoTalla::updateOrCreate(
-            ['producto_id' => $product->id, 'talla_id' => $request->talla_id],
+            [
+                'producto_id' => $product->id,
+                'talla_id' => $request->talla_id,
+                'color_id' => $request->color_id
+            ],
             [
                 'stock' => $request->stock,
                 'activo' => $request->boolean('activo', true),
@@ -81,6 +91,9 @@ class ProductoTallaController extends Controller
 
         // Sincronizar stock total del producto
         $product->sincronizarStock();
+
+        // Broadcasting update
+        $this->broadcastStockUpdate();
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -120,10 +133,13 @@ class ProductoTallaController extends Controller
             // Sincronizar stock total del producto
             $product->sincronizarStock();
 
+            // Broadcasting update
+            $this->broadcastStockUpdate();
+
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => true,
-                    'pt' => $producto_talla->fresh()->load('talla'),
+                    'pt' => $producto_talla->fresh()->load(['talla', 'color']),
                     'message' => "Stock actualizado correctamente.",
                 ]);
             }
@@ -152,6 +168,9 @@ class ProductoTallaController extends Controller
         $producto_talla->delete();
         $product->sincronizarStock();
 
+        // Broadcasting update
+        $this->broadcastStockUpdate();
+
         if ($request->expectsJson()) {
             return response()->json(['success' => true, 'message' => 'Talla eliminada.']);
         }
@@ -165,7 +184,7 @@ class ProductoTallaController extends Controller
      */
     public function inventario(Request $request)
     {
-        $query = ProductoTalla::with(['producto', 'talla'])
+        $query = ProductoTalla::with(['producto', 'talla', 'color'])
             ->join('products', 'products.id', '=', 'producto_tallas.producto_id')
             ->join('tallas', 'tallas.id', '=', 'producto_tallas.talla_id')
             ->select('producto_tallas.*')
@@ -179,6 +198,9 @@ class ProductoTallaController extends Controller
         if ($request->filled('tipo')) {
             $query->where('tallas.tipo', $request->tipo);
         }
+        if ($request->filled('color')) {
+            $query->where('producto_tallas.color_id', $request->color);
+        }
         if ($request->filled('estado')) {
             match ($request->estado) {
                 'agotado' => $query->where('producto_tallas.stock', 0),
@@ -189,6 +211,7 @@ class ProductoTallaController extends Controller
         }
 
         $registros = $query->get();
+        $colors = \App\Models\Color::orderBy('name')->get();
 
         // Estadísticas
         $stats = [
@@ -198,6 +221,20 @@ class ProductoTallaController extends Controller
             'disponibles' => $registros->where('stock', '>=', 5)->count(),
         ];
 
-        return view('products.inventario-tallas', compact('registros', 'stats'));
+        return view('products.inventario-tallas', compact('registros', 'stats', 'colors'));
+    }
+
+    /**
+     * Helper para disparar el evento de stock actualizado al dashboard.
+     */
+    private function broadcastStockUpdate()
+    {
+        try {
+            $statsController = new DashboardStatsController();
+            $stats = $statsController->prepareAdminStatsPayload();
+            broadcast(new StockActualizadoEvent($stats));
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Stock broadcast failed: " . $e->getMessage());
+        }
     }
 }

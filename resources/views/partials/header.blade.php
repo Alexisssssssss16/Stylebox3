@@ -97,8 +97,12 @@
                     <span class="d-none d-md-block text-dark small fw-medium">{{ auth()->user()->name }}</span>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end shadow border-0" aria-labelledby="dropdownUser1">
-                    <li><a class="dropdown-item small" href="#"><i class="fas fa-user-circle me-2"></i>Perfil</a></li>
-                    <li><a class="dropdown-item small" href="#"><i class="fas fa-cog me-2"></i>Configuración</a></li>
+                    <li><a class="dropdown-item small" href="{{ route('profile.edit') }}"><i
+                                class="fas fa-user-circle me-2"></i>Perfil</a></li>
+                    @role('admin')
+                    <li><a class="dropdown-item small" href="{{ route('admin.settings.index') }}"><i
+                                class="fas fa-cog me-2"></i>Configuración</a></li>
+                    @endrole
                     <li>
                         <hr class="dropdown-divider">
                     </li>

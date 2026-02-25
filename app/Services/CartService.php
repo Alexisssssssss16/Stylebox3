@@ -18,19 +18,25 @@ class CartService
     public function items(): \Illuminate\Support\Collection
     {
         if (Auth::check()) {
-            return CartItem::with(['product', 'talla'])
+            return CartItem::with(['product', 'talla', 'color'])
                 ->where('user_id', Auth::id())
                 ->get()
                 ->map(fn($item) => [
                     'id' => $item->product_id,
                     'talla_id' => $item->talla_id,
+                    'color_id' => $item->color_id,
                     'name' => $item->product->name,
                     'talla' => $item->talla?->nombre,
-                    'price' => (float) ($item->product->price + ($item->productoTalla?->precio_extra ?? 0)),
+                    'color' => $item->color?->name,
+                    'hex' => $item->color?->hex_code,
+                    'price' => (float) ($item->product->price),
                     'image' => $item->product->image,
                     'quantity' => $item->quantity,
-                    'stock' => $item->talla_id
-                        ? $item->product->productoTallas()->where('talla_id', $item->talla_id)->first()?->stock ?? 0
+                    'stock' => $item->product->hasStock(0, $item->talla_id, $item->color_id)
+                        ? $item->product->productoTallas()
+                            ->where('talla_id', $item->talla_id)
+                            ->where('color_id', $item->color_id)
+                            ->first()?->stock ?? 0
                         : $item->product->stock,
                 ]);
         }
@@ -39,15 +45,20 @@ class CartService
     }
 
     /** Add or increment a product in the cart. */
-    public function add(int $productId, string $name, float $price, int $stock, ?string $image, int $quantity = 1, ?int $tallaId = null, ?string $tallaNombre = null): void
+    public function add(int $productId, string $name, float $price, int $stock, ?string $image, int $quantity = 1, ?int $tallaId = null, ?string $tallaNombre = null, ?int $colorId = null, ?string $colorNombre = null): void
     {
-        $key = $tallaId ? "{$productId}_{$tallaId}" : (string) $productId;
+        $key = $productId;
+        if ($tallaId)
+            $key .= "_{$tallaId}";
+        if ($colorId)
+            $key .= "_{$colorId}";
 
         if (Auth::check()) {
             $item = CartItem::firstOrNew([
                 'user_id' => Auth::id(),
                 'product_id' => $productId,
                 'talla_id' => $tallaId,
+                'color_id' => $colorId,
             ]);
             $newQty = ($item->exists ? $item->quantity : 0) + $quantity;
             $item->quantity = min($newQty, $stock);
@@ -65,6 +76,8 @@ class CartService
                 'id' => $productId,
                 'talla_id' => $tallaId,
                 'talla' => $tallaNombre,
+                'color_id' => $colorId,
+                'color' => $colorNombre,
                 'name' => $name,
                 'price' => $price,
                 'image' => $image,
@@ -77,14 +90,19 @@ class CartService
     }
 
     /** Set an explicit quantity for a cart item. */
-    public function update(int $productId, int $quantity, int $stock, ?int $tallaId = null): bool
+    public function update(int $productId, int $quantity, int $stock, ?int $tallaId = null, ?int $colorId = null): bool
     {
-        $key = $tallaId ? "{$productId}_{$tallaId}" : (string) $productId;
+        $key = $productId;
+        if ($tallaId)
+            $key .= "_{$tallaId}";
+        if ($colorId)
+            $key .= "_{$colorId}";
 
         if (Auth::check()) {
             $item = CartItem::where('user_id', Auth::id())
                 ->where('product_id', $productId)
                 ->where('talla_id', $tallaId)
+                ->where('color_id', $colorId)
                 ->first();
 
             if (!$item)
@@ -116,14 +134,19 @@ class CartService
     }
 
     /** Remove a product from the cart. */
-    public function remove(int $productId, ?int $tallaId = null): void
+    public function remove(int $productId, ?int $tallaId = null, ?int $colorId = null): void
     {
-        $key = $tallaId ? "{$productId}_{$tallaId}" : (string) $productId;
+        $key = $productId;
+        if ($tallaId)
+            $key .= "_{$tallaId}";
+        if ($colorId)
+            $key .= "_{$colorId}";
 
         if (Auth::check()) {
             CartItem::where('user_id', Auth::id())
                 ->where('product_id', $productId)
                 ->where('talla_id', $tallaId)
+                ->where('color_id', $colorId)
                 ->delete();
             return;
         }
@@ -159,7 +182,11 @@ class CartService
                     (float) $product->price,
                     $product->stock,
                     $product->image,
-                    $itemData['quantity']
+                    $itemData['quantity'],
+                    $itemData['talla_id'] ?? null,
+                    $itemData['talla'] ?? null,
+                    $itemData['color_id'] ?? null,
+                    $itemData['color'] ?? null
                 );
             }
         }

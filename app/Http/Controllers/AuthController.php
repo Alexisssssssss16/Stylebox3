@@ -10,6 +10,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
+use App\Events\UsuarioRegistradoEvent;
+use App\Http\Controllers\DashboardStatsController;
 
 class AuthController extends Controller
 {
@@ -97,6 +99,15 @@ class AuthController extends Controller
 
         // 6. Sync guest cart to user account
         $cart->syncSessionToDb();
+
+        // 7. Trigger Real-time update for Admin Dashboard
+        try {
+            $statsController = new DashboardStatsController();
+            $stats = $statsController->prepareAdminStatsPayload();
+            broadcast(new UsuarioRegistradoEvent($stats));
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("User registration broadcast failed: " . $e->getMessage());
+        }
 
         return redirect()->route('dashboard')
             ->with('success', '¡Bienvenido a StyleBox! Tu cuenta ha sido creada.');

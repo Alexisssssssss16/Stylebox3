@@ -81,9 +81,11 @@
                         'image' => $product->image,
                         'productoTallas' => $product->productoTallas->map(fn($pt) => [
                             'id' => $pt->id,
-                            'talla_id' => $pt->talla_id, // ADDED
+                            'talla_id' => $pt->talla_id,
                             'talla' => $pt->talla->nombre,
-                            'tipo' => $pt->talla->tipo,
+                            'color_id' => $pt->color_id,
+                            'color' => $pt->color?->name,
+                            'hex' => $pt->color?->hex_code,
                             'stock' => $pt->stock,
                         ])
                     ]) }})">
@@ -238,7 +240,11 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body pt-2">
-                    <p class="text-muted small mb-3"><i class="fas fa-hand-pointer me-1"></i>Selecciona la talla:</p>
+                    <p class="text-muted small mb-2"><i class="fas fa-palette me-1"></i>1. Selecciona el Color:</p>
+                    <div class="d-flex flex-wrap gap-2 mb-3" id="coloresBotones"></div>
+
+                    <p class="text-muted small mb-2 d-none" id="labelTalla"><i class="fas fa-hand-pointer me-1"></i>2.
+                        Selecciona la Talla:</p>
                     <div class="d-flex flex-wrap gap-2" id="tallasBotones"></div>
                 </div>
             </div>
@@ -253,61 +259,94 @@
         let products = @json($products);
         let tallaModalBS = null;
 
-        // ─ Selector de talla: se llama al hacer clic en un producto ─
+        // ─ Selector de variante: se llama al hacer clic en un producto ─
         function selectTalla(product) {
             if (!product.productoTallas || product.productoTallas.length === 0) {
-                addToCart(product, null, null);
+                addToCart(product, null, null, null, null);
                 return;
             }
             document.getElementById('tallaModalNombre').textContent = product.name;
             document.getElementById('tallaModalPrecio').textContent = 'S/ ' + parseFloat(product.price).toFixed(2) + ' por unidad';
 
-            const container = document.getElementById('tallasBotones');
-            container.innerHTML = '';
+            const colorContainer = document.getElementById('coloresBotones');
+            const tallaContainer = document.getElementById('tallasBotones');
+            const labelTalla = document.getElementById('labelTalla');
 
+            colorContainer.innerHTML = '';
+            tallaContainer.innerHTML = '';
+            labelTalla.classList.add('d-none');
+
+            // Agrupar variantes por color para mostrar selectores
+            const colorsMap = new Map();
             product.productoTallas.forEach(pt => {
-                const agotado = pt.stock === 0;
-                const bajo = pt.stock > 0 && pt.stock < 5;
-                const cls = agotado ? 'btn-outline-danger' : (bajo ? 'btn-warning' : 'btn-outline-dark');
-                const label = agotado ? '\u274c Agotado' : (bajo ? '\u26a0\ufe0f ' + pt.stock + ' uds.' : '\u2705 ' + pt.stock + ' uds.');
+                if (!colorsMap.has(pt.color_id)) {
+                    colorsMap.set(pt.color_id, {
+                        id: pt.color_id,
+                        name: pt.color || 'Sin color',
+                        hex: pt.hex,
+                        variants: []
+                    });
+                }
+                colorsMap.get(pt.color_id).variants.push(pt);
+            });
 
+            colorsMap.forEach(c => {
                 const btn = document.createElement('button');
                 btn.type = 'button';
-                btn.className = `btn ${cls} px-4 py-2 fw-bold fs-5`;
-                btn.style.minWidth = '70px';
-                btn.disabled = agotado;
-                btn.innerHTML = `${pt.talla}<br><small class="fw-normal" style="font-size:.7rem">${label}</small>`;
+                btn.className = `btn btn-outline-dark d-flex align-items-center gap-2 px-3 py-2 fw-bold`;
+                btn.innerHTML = `
+                        ${c.hex ? `<span style="width:14px; height:14px; border-radius:50%; background:${c.hex}; border:1px solid #ccc;"></span>` : ''}
+                        ${c.name}
+                    `;
+                btn.onclick = () => {
+                    // Highlight selected color
+                    colorContainer.querySelectorAll('button').forEach(b => b.classList.replace('btn-dark', 'btn-outline-dark'));
+                    btn.classList.replace('btn-outline-dark', 'btn-dark');
 
-                if (!agotado) {
-                    btn.onclick = () => {
-                        addToCart(product, pt.talla_id, pt.talla);
-                        tallaModalBS.hide();
-                    };
-                }
-                container.appendChild(btn);
+                    // Show talla buttons for this color
+                    labelTalla.classList.remove('d-none');
+                    tallaContainer.innerHTML = '';
+                    c.variants.forEach(v => {
+                        const agotado = v.stock <= 0;
+                        const tBtn = document.createElement('button');
+                        tBtn.type = 'button';
+                        tBtn.className = `btn ${agotado ? 'btn-outline-danger' : 'btn-outline-primary'} px-4 py-2 fw-bold`;
+                        tBtn.disabled = agotado;
+                        tBtn.innerHTML = `${v.talla}<br><small style="font-size:.6rem">${agotado ? 'Agotado' : v.stock + ' uds.'}</small>`;
+                        tBtn.onclick = () => {
+                            addToCart(product, v.talla_id, v.talla, v.color_id, v.color);
+                            tallaModalBS.hide();
+                        };
+                        tallaContainer.appendChild(tBtn);
+                    });
+                };
+                colorContainer.appendChild(btn);
             });
 
             tallaModalBS = new bootstrap.Modal(document.getElementById('tallaModal'));
             tallaModalBS.show();
         }
 
-        // ─ Añadir al carrito (producto + talla opcional) ─
-        function addToCart(product, tallaId, tallaNombre) {
-            const key = tallaId ? `${product.id}-${tallaId}` : `${product.id}`;
-            const maxStock = tallaId
-                ? (product.productoTallas?.find(pt => pt.id === tallaId)?.stock ?? product.stock)
-                : product.stock;
+        // ─ Añadir al carrito (producto + talla + color opcional) ─
+        function addToCart(product, tallaId, tallaNombre, colorId, colorNombre) {
+            const key = `${product.id}-${tallaId ?? 0}-${colorId ?? 0}`;
+
+            let maxStock = product.stock;
+            if (tallaId || colorId) {
+                const variant = product.productoTallas?.find(v => v.talla_id == tallaId && v.color_id == colorId);
+                maxStock = variant ? variant.stock : 0;
+            }
 
             let existing = cart.find(item => item.key === key);
             if (existing) {
                 if (existing.quantity + 1 > maxStock) {
-                    Swal.fire('Stock Insuficiente', 'No hay más unidades disponibles de esta talla', 'warning');
+                    Swal.fire('Stock Insuficiente', 'No hay más unidades disponibles de esta variante', 'warning');
                     return;
                 }
                 existing.quantity++;
             } else {
                 if (maxStock < 1) {
-                    Swal.fire('Stock Insuficiente', 'Producto agotado', 'warning');
+                    Swal.fire('Stock Insuficiente', 'Variante agotada', 'warning');
                     return;
                 }
                 cart.push({
@@ -315,6 +354,8 @@
                     id: product.id,
                     talla_id: tallaId,
                     talla: tallaNombre,
+                    color_id: colorId,
+                    color: colorNombre,
                     name: product.name,
                     price: parseFloat(product.price),
                     quantity: 1,
@@ -367,10 +408,10 @@
 
             if (cart.length === 0) {
                 container.innerHTML = `
-                                            <div class="text-center py-5 text-muted empty-cart-message">
-                                                <i class="fas fa-shopping-basket fa-3x mb-3 opacity-50"></i>
-                                                <p>El carrito está vacío</p>
-                                            </div>`;
+                                                <div class="text-center py-5 text-muted empty-cart-message">
+                                                    <i class="fas fa-shopping-basket fa-3x mb-3 opacity-50"></i>
+                                                    <p>El carrito está vacío</p>
+                                                </div>`;
                 btn.disabled = true;
                 updateTotals(0);
                 return;
@@ -382,23 +423,25 @@
             cart.forEach((item, index) => {
                 let subtotal = item.price * item.quantity;
                 total += subtotal;
-                const tallaBadge = item.talla
-                    ? `<span class="badge bg-secondary ms-1">${item.talla}</span>`
-                    : '';
+
+                let variantLabels = [];
+                if (item.talla) variantLabels.push(`<span class="badge bg-secondary ms-1">${item.talla}</span>`);
+                if (item.color) variantLabels.push(`<span class="badge bg-info text-dark ms-1">${item.color}</span>`);
+
                 html += `
-                                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                                                <div class="ms-2 me-auto">
-                                                    <div class="fw-bold">${item.name} ${tallaBadge}</div>
-                                                    <div class="text-muted small">S/ ${item.price.toFixed(2)} x ${item.quantity}</div>
-                                                </div>
-                                                <div class="d-flex align-items-center gap-2">
-                                                    <span class="fw-bold">S/ ${subtotal.toFixed(2)}</span>
-                                                    <button class="btn btn-sm text-danger" onclick="removeFromCart(${index})">
-                                                        <i class="fas fa-times"></i>
-                                                    </button>
-                                                </div>
-                                            </li>
-                                        `;
+                                                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                                    <div class="ms-2 me-auto">
+                                                        <div class="fw-bold">${item.name} ${variantLabels.join('')}</div>
+                                                        <div class="text-muted small">S/ ${item.price.toFixed(2)} x ${item.quantity}</div>
+                                                    </div>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <span class="fw-bold">S/ ${subtotal.toFixed(2)}</span>
+                                                        <button class="btn btn-sm text-danger" onclick="removeFromCart(${index})">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                    </div>
+                                                </li>
+                                            `;
             });
             html += '</ul>';
             container.innerHTML = html;
@@ -440,22 +483,22 @@
             let div = document.createElement('div');
             div.className = 'payment-row mb-3 row g-2';
             div.innerHTML = `
-                                        <div class="col-6">
-                                            <select class="form-select payment-method-select">
-                                                @foreach($paymentMethods as $method)
-                                                    <option value="{{ $method->id }}">{{ $method->name }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                        <div class="col-4">
-                                            <input type="number" class="form-control payment-amount-input" step="0.01" placeholder="Monto">
-                                        </div>
-                                        <div class="col-2">
-                                            <button class="btn btn-outline-danger w-100" onclick="this.closest('.row').remove()">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </div>
-                                    `;
+                                            <div class="col-6">
+                                                <select class="form-select payment-method-select">
+                                                    @foreach($paymentMethods as $method)
+                                                        <option value="{{ $method->id }}">{{ $method->name }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            <div class="col-4">
+                                                <input type="number" class="form-control payment-amount-input" step="0.01" placeholder="Monto">
+                                            </div>
+                                            <div class="col-2">
+                                                <button class="btn btn-outline-danger w-100" onclick="this.closest('.row').remove()">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        `;
             container.appendChild(div);
         }
 
@@ -496,10 +539,11 @@
                 return;
             }
 
-            // Mapear carrito incluyendo talla_id
+            // Mapear carrito incluyendo talla_id y color_id
             const cartPayload = cart.map(item => ({
                 id: item.id,
                 talla_id: item.talla_id,
+                color_id: item.color_id,
                 quantity: item.quantity,
                 price: item.price,
             }));
