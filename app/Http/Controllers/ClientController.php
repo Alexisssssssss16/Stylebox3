@@ -44,7 +44,11 @@ class ClientController extends Controller
             'client_type' => 'required|in:virtual,presencial',
         ]);
 
-        $client = Client::create($request->all());
+        $data = $request->all();
+        $data['user_id'] = auth()->id();
+        $client = Client::create($data);
+
+        event(new \App\Events\ClienteRegistrado($client));
 
         // If it's a manual client creation (presumably presencial) and we want them in users table
         if ($request->client_type === 'presencial') {
@@ -94,5 +98,25 @@ class ClientController extends Controller
         $client->delete();
 
         return redirect()->route('clients.index')->with('success', 'Cliente eliminado exitosamente.');
+    }
+
+    public function clientesNuevosDelDia(Request $request)
+    {
+        $userId = auth()->id();
+        $today = now()->toDateString();
+
+        $clients = Client::where('user_id', $userId)
+            ->whereDate('created_at', $today)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'total' => $clients->count(),
+            'list' => $clients->map(fn($c) => [
+                'name' => $c->name,
+                'phone' => $c->phone ?? 'N/A',
+                'time' => $c->created_at->format('H:i')
+            ])
+        ]);
     }
 }

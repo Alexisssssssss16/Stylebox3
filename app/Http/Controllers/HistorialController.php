@@ -15,11 +15,32 @@ class HistorialController extends Controller
     /**
      * Display a listing of the buyer's purchases.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $purchases = Auth::user()->purchases()
-            ->with(['details.product', 'details.talla', 'details.color'])
-            ->paginate(10);
+        $query = Auth::user()->purchases()
+            ->with(['details.product', 'details.talla', 'details.color', 'payments.paymentMethod']);
+
+        // Filter by estado
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->estado);
+        }
+
+        // Filter by date range
+        if ($request->filled('fecha_desde')) {
+            $query->whereDate('date', '>=', $request->fecha_desde);
+        }
+        if ($request->filled('fecha_hasta')) {
+            $query->whereDate('date', '<=', $request->fecha_hasta);
+        }
+
+        // Sorting
+        match ($request->input('sort', 'newest')) {
+            'oldest' => $query->orderBy('date', 'asc'),
+            'amount' => $query->orderBy('total', 'desc'),
+            default => $query->orderBy('date', 'desc'),
+        };
+
+        $purchases = $query->paginate(10)->withQueryString();
 
         return view('shop.historial.index', compact('purchases'));
     }

@@ -16,6 +16,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SettingController;
 use Illuminate\Support\Facades\Route;
@@ -37,6 +38,10 @@ Route::middleware('guest')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
     Route::get('register', [AuthController::class, 'showRegisterForm'])->name('register');
     Route::post('register', [AuthController::class, 'register']);
+
+    // Social Login
+    Route::get('auth/{provider}', [\App\Http\Controllers\SocialAuthController::class, 'redirectToProvider'])->name('social.login');
+    Route::get('auth/{provider}/callback', [\App\Http\Controllers\SocialAuthController::class, 'handleProviderCallback'])->name('social.callback');
 });
 
 Route::post('logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
@@ -48,6 +53,7 @@ Route::get('/catalogo', [CatalogoController::class, 'index'])->name('catalogo');
 // 2.1 Public Shop Routes (TikTok-style feed)
 Route::prefix('shop')->name('shop.')->group(function () {
     Route::get('/', [ShopController::class, 'index'])->name('index');
+    Route::get('/product/{product}/tallas', [ShopController::class, 'getSizes'])->name('get-sizes');
     Route::get('/{product}', [ShopController::class, 'show'])->name('show');
 });
 
@@ -62,6 +68,7 @@ Route::middleware(['auth'])->group(function () {
 
     // ── Shopping Cart ──────────────────────────────────────────────────────
     Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
+    Route::get('/cart/count', [CartController::class, 'count'])->name('cart.count');
     Route::post('/cart', [CartController::class, 'store'])->name('cart.store');
     Route::patch('/cart/{id}', [CartController::class, 'update'])->name('cart.update');
     Route::delete('/cart/{id}', [CartController::class, 'destroy'])->name('cart.destroy');
@@ -97,7 +104,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
 
         // Seller Stats (Shared with Admin)
-        Route::get('/seller/stats', [DashboardStatsController::class, 'getSellerStats'])->name('vendedor.stats');
+        Route::get('/vendedor/stats', [App\Http\Controllers\DashboardStatsController::class, 'getSellerStats'])->name('vendedor.stats');
+        Route::get('/vendedor/corte-diario', [App\Http\Controllers\CorteDiarioController::class, 'generarCorteDiario'])->name('vendedor.corte-diario');
+        Route::get('/vendedor/clientes-nuevos', [App\Http\Controllers\ClientController::class, 'clientesNuevosDelDia'])->name('vendedor.clientes-nuevos');
 
         // ── Order Status Management ──────────────────────────────────────
         Route::post('/admin/orders/{sale}/estado', [CheckoutController::class, 'updateEstado'])->name('orders.estado');

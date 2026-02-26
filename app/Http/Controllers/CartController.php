@@ -136,4 +136,10 @@ class CartController extends Controller
             'count' => $this->cart->count(),
         ]);
     }
+
+    /** Return cart item count (GET, returns JSON for badge updates). */
+    public function count()
+    {
+        return response()->json(['count' => $this->cart->count()]);
+    }
 }

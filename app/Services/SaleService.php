@@ -170,7 +170,8 @@ class SaleService
                 $statsController = new DashboardStatsController();
                 $stats = $statsController->prepareAdminStatsPayload();
 
-                broadcast(new VentaRealizadaEvent($stats));
+                // Disparar evento para el Dashboard General (Admin) y el Privado (Vendedor)
+                event(new VentaRealizadaEvent($sale, $stats));
                 broadcast(new StockActualizadoEvent($stats));
             } catch (\Exception $e) {
                 \Illuminate\Support\Facades\Log::error("Real-time broadcast failed: " . $e->getMessage());

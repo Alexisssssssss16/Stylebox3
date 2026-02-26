@@ -17,5 +17,7 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
     return (int) $user->id === (int) $id;
 });
 
-// Canal público para estadísticas (usado por el Dashboard)
-// No requiere autorización por ser público para simplificar el flujo inicial
+// Canal privado para vendedores (Solo el vendedor recibe sus propias ventas en vivo)
+Broadcast::channel('vendedor.{id}', function ($user, $id) {
+    return (int) $user->id === (int) $id;
+});
